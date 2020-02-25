@@ -11,9 +11,18 @@ import java.util.Date;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import javax.persistence.criteria.CriteriaBuilder;
+import javax.persistence.criteria.CriteriaQuery;
+import javax.persistence.criteria.Path;
+import javax.persistence.criteria.Root;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.hibernate.Session;
+import org.hibernate.query.Query;
 
 public class CommitDAORdbImpl implements CommitDAO {
+  private static final Logger LOGGER = LogManager.getLogger(CommitDAORdbImpl.class);
+
   public Response setCommit(Commit commit, BlobFunction setBlobs, RepositoryFunction getRepository)
       throws ModelDBException, NoSuchAlgorithmException {
     try (Session session = ModelDBHibernateUtil.getSessionFactory().openSession()) {
@@ -33,6 +42,27 @@ public class CommitDAORdbImpl implements CommitDAO {
       session.saveOrUpdate(commitEntity);
       session.getTransaction().commit();
       return Response.newBuilder().setCommit(commitEntity.toCommitProto()).build();
+    }
+  }
+
+  @Override
+  public ListCommitsRequest.Response listCommits(ListCommitsRequest request) {
+    try (Session session = ModelDBHibernateUtil.getSessionFactory().openSession()) {
+      CriteriaBuilder builder = session.getCriteriaBuilder();
+      CriteriaQuery<CommitEntity> criteriaQuery =
+          builder.createQuery(CommitEntity.class);
+      Root<CommitEntity> root = criteriaQuery.from(CommitEntity.class);
+      //criteriaQuery.select(root);
+      criteriaQuery.where(root.get("parent_commits").in(request.getCommitBase()));
+      Query query2 = session.createQuery(criteriaQuery);
+      LOGGER.debug("Final query : {}", query2.getQueryString());
+      Query<CommitEntity> query = session.createQuery("select c From CommitEntity c join c.parent_commits p where p.commit_hash='" + request.getCommitBase() + "'");
+      Query<CommitEntity> query123 = session.createQuery("select c From CommitEntity c join c.parent_commits p where p.commit_hash='" + request.getCommitBase() + "'");
+      Query<CommitEntity> query23 = session.createQuery("select c From CommitEntity c join c.child_commits p where p.commit_hash='" + request.getCommitHead() + "'");
+      LOGGER.debug("Final query : {}", query.getQueryString());
+      List<CommitEntity> list = query.list();
+      List<CommitEntity> list23 = query23.list();
+      return null;
     }
   }
 

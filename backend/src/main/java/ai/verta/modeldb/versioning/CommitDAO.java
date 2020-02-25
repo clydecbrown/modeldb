@@ -7,4 +7,6 @@ import java.security.NoSuchAlgorithmException;
 interface CommitDAO {
   Response setCommit(Commit commit, BlobFunction setBlobs, RepositoryFunction getRepository)
       throws ModelDBException, NoSuchAlgorithmException;
+
+  ListCommitsRequest.Response listCommits(ListCommitsRequest request);
 }

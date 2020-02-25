@@ -148,7 +148,13 @@ public class VersioningServiceImpl extends VersioningServiceImplBase {
   @Override
   public void listCommits(
       ListCommitsRequest request, StreamObserver<ListCommitsRequest.Response> responseObserver) {
-    super.listCommits(request, responseObserver);
+    QPSCountResource.inc();
+    try (RequestLatencyResource latencyResource =
+        new RequestLatencyResource(modelDBAuthInterceptor.getMethodName())) {
+      ListCommitsRequest.Response response = commitDAO.listCommits(request);
+      responseObserver.onNext(response);
+      responseObserver.onCompleted();
+    }
   }
 
   @Override
