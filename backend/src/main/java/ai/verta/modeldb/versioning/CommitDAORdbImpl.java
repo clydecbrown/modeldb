@@ -2,6 +2,7 @@ package ai.verta.modeldb.versioning;
 
 import ai.verta.modeldb.ModelDBException;
 import ai.verta.modeldb.entities.versioning.CommitEntity;
+import ai.verta.modeldb.entities.versioning.RepositoryEntity;
 import ai.verta.modeldb.utils.ModelDBHibernateUtil;
 import ai.verta.modeldb.versioning.CreateCommitRequest.Response;
 import com.google.protobuf.ProtocolStringList;
@@ -14,8 +15,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import javax.persistence.Query;
 import org.hibernate.Session;
-import org.hibernate.query.Query;
 
 public class CommitDAORdbImpl implements CommitDAO {
   private static final Logger LOGGER = LogManager.getLogger(CommitDAORdbImpl.class);
@@ -85,5 +86,34 @@ public class CommitDAORdbImpl implements CommitDAO {
       throw new ModelDBException("Cannot find parent commits", Code.INVALID_ARGUMENT);
     }
     return result;
+  }
+
+  private boolean commitRepositoryMappingExists(
+      Session session, String commitHash, Long repositoryId) {
+    String queryString =
+        "SELECT count(*) FROM repository_commit rc WHERE rc.commit_hash = :commitHash AND rc.repository_id = :repoId";
+    Query query = session.createQuery(queryString);
+    query.setParameter("commitHash", commitHash);
+    query.setParameter("repoId", repositoryId);
+    Long count = (Long) query.getSingleResult();
+    return count > 0;
+  }
+
+  @Override
+  public Commit getCommit(String commitHash, RepositoryFunction getRepository)
+      throws ModelDBException {
+    try (Session session = ModelDBHibernateUtil.getSessionFactory().openSession()) {
+      session.beginTransaction();
+      RepositoryEntity repositoryEntity = getRepository.apply(session);
+      boolean exists = commitRepositoryMappingExists(session, commitHash, repositoryEntity.getId());
+      if (!exists) {
+        throw new ModelDBException(
+            "Commit_hash and repository_id mapping not found", Code.NOT_FOUND);
+      }
+
+      CommitEntity commitEntity = session.load(CommitEntity.class, commitHash);
+      session.getTransaction().commit();
+      return commitEntity.toCommitProto();
+    }
   }
 }

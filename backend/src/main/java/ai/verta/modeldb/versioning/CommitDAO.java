@@ -9,4 +9,6 @@ interface CommitDAO {
       throws ModelDBException, NoSuchAlgorithmException;
 
   ListCommitsRequest.Response listCommits(ListCommitsRequest request);
+
+  Commit getCommit(String commitHash, RepositoryFunction getRepository) throws ModelDBException;
 }
