@@ -7,7 +7,6 @@ import ai.verta.modeldb.dto.WorkspaceDTO;
 import ai.verta.modeldb.entities.versioning.RepositoryEntity;
 import ai.verta.modeldb.utils.ModelDBHibernateUtil;
 import ai.verta.modeldb.versioning.GetRepositoryRequest.Response;
-import ai.verta.modeldb.versioning.ListRepositoriesRequest.Response.Builder;
 import io.grpc.Status.Code;
 import java.util.List;
 import java.util.Optional;
@@ -46,6 +45,14 @@ public class RepositoryDAORdbImpl implements RepositoryDAO {
           .append(".")
           .append(ModelDBConstants.NAME)
           .append(" = :repositoryName ")
+          .toString();
+
+  private static final String GET_REPOSITORY_COUNT_PREFIX_HQL =
+      new StringBuilder("Select count(*) From ")
+          .append(RepositoryEntity.class.getSimpleName())
+          .append(" ")
+          .append(SHORT_NAME)
+          .append(" where ")
           .toString();
 
   private static final String GET_REPOSITORY_PREFIX_HQL =
@@ -181,9 +188,22 @@ public class RepositoryDAORdbImpl implements RepositoryDAO {
       query.setFirstResult((request.getPagination().getPageNumber() - 1) * pageLimit);
       query.setMaxResults(pageLimit);
       List list = query.list();
-      ListRepositoriesRequest.Response.Builder builder = ListRepositoriesRequest.Response
-          .newBuilder();
+      ListRepositoriesRequest.Response.Builder builder =
+          ListRepositoriesRequest.Response.newBuilder();
+      query =
+          ModelDBHibernateUtil.getWorkspaceEntityQuery(
+              session,
+              SHORT_NAME,
+              GET_REPOSITORY_COUNT_PREFIX_HQL,
+              "repositoryName",
+              null,
+              ModelDBConstants.WORKSPACE_ID,
+              workspaceDTO.getWorkspaceId(),
+              workspaceDTO.getWorkspaceType(),
+              false);
       list.forEach((o) -> builder.addRepository(((RepositoryEntity) o).toProto()));
+      final Long value = (Long) query.uniqueResult();
+      builder.setTotalRecords(value);
       return builder.build();
     }
   }

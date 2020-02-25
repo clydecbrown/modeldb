@@ -58,9 +58,13 @@ public class VersioningServiceImpl extends VersioningServiceImplBase {
       try (RequestLatencyResource latencyResource =
           new RequestLatencyResource(modelDBAuthInterceptor.getMethodName())) {
         WorkspaceDTO workspaceDTO =
-            verifyAndGetWorkspaceDTO(RepositoryIdentification.newBuilder().setNamedId(
-                RepositoryNamedIdentification.newBuilder()
-                    .setWorkspaceName(request.getWorkspaceName())).build(), false);
+            verifyAndGetWorkspaceDTO(
+                RepositoryIdentification.newBuilder()
+                    .setNamedId(
+                        RepositoryNamedIdentification.newBuilder()
+                            .setWorkspaceName(request.getWorkspaceName()))
+                    .build(),
+                false);
 
         Response response = repositoryDAO.listRepositories(request, workspaceDTO);
         responseObserver.onNext(response);
