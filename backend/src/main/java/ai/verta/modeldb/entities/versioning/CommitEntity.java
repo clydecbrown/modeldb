@@ -62,7 +62,7 @@ public class CommitEntity {
   private Set<CommitEntity> parent_commits = new HashSet<>();
 
   @ManyToMany(mappedBy = "parent_commits")
-  private Set<CommitEntity> posts = new HashSet<>();
+  private Set<CommitEntity> child_commits = new HashSet<>();
 
   public String getCommit_hash() {
     return commit_hash;

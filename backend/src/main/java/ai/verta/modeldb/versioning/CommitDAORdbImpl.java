@@ -11,10 +11,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.CriteriaQuery;
-import javax.persistence.criteria.Path;
-import javax.persistence.criteria.Root;
+import java.util.stream.Stream;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.hibernate.Session;
@@ -48,21 +45,32 @@ public class CommitDAORdbImpl implements CommitDAO {
   @Override
   public ListCommitsRequest.Response listCommits(ListCommitsRequest request) {
     try (Session session = ModelDBHibernateUtil.getSessionFactory().openSession()) {
-      CriteriaBuilder builder = session.getCriteriaBuilder();
-      CriteriaQuery<CommitEntity> criteriaQuery =
-          builder.createQuery(CommitEntity.class);
-      Root<CommitEntity> root = criteriaQuery.from(CommitEntity.class);
-      //criteriaQuery.select(root);
-      criteriaQuery.where(root.get("parent_commits").in(request.getCommitBase()));
-      Query query2 = session.createQuery(criteriaQuery);
-      LOGGER.debug("Final query : {}", query2.getQueryString());
-      Query<CommitEntity> query = session.createQuery("select c From CommitEntity c join c.parent_commits p where p.commit_hash='" + request.getCommitBase() + "'");
-      Query<CommitEntity> query123 = session.createQuery("select c From CommitEntity c join c.parent_commits p where p.commit_hash='" + request.getCommitBase() + "'");
-      Query<CommitEntity> query23 = session.createQuery("select c From CommitEntity c join c.child_commits p where p.commit_hash='" + request.getCommitHead() + "'");
-      LOGGER.debug("Final query : {}", query.getQueryString());
-      List<CommitEntity> list = query.list();
-      List<CommitEntity> list23 = query23.list();
-      return null;
+      Stream<CommitEntity> list;
+      if (request.getCommitBase().isEmpty() && request.getCommitHead().isEmpty()) {
+        Query<CommitEntity> query = session.createQuery("select c From CommitEntity");
+        list = query.list().stream().filter(c -> c.getParent_commits().isEmpty());
+      } else {
+        Query<CommitEntity> query;
+        if (request.getCommitBase().isEmpty()) {
+          query = session.createQuery(
+              "select c From CommitEntity c join c.child_commits h where h.commit_hash='" + request
+                  .getCommitHead() + "'");
+        } else if (request.getCommitHead().isEmpty()) {
+          query = session.createQuery(
+              "select c From CommitEntity c join c.parent_commits p where p.commit_hash='"
+                  + request.getCommitBase() + "'");
+        } else {
+          query = session.createQuery(
+              "select c From CommitEntity c join c.parent_commits p join c.child_commits h where p.commit_hash='"
+                  + request.getCommitBase() + "' and h.commit_hash='" + request.getCommitHead()
+                  + "'");
+        }
+        LOGGER.debug("Final query : {}", query.getQueryString());
+        list = query.list().stream();
+      }
+      return ListCommitsRequest.Response.newBuilder()
+          .addAllCommits(list.map(CommitEntity::toCommitProto).collect(Collectors.toList()))
+          .build();
     }
   }
 
