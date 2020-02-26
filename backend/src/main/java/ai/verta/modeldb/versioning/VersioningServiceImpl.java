@@ -268,7 +268,21 @@ public class VersioningServiceImpl extends VersioningServiceImplBase {
   public void getCommitFolder(
       GetCommitFolderRequest request,
       StreamObserver<GetCommitFolderRequest.Response> responseObserver) {
-    super.getCommitFolder(request, responseObserver);
+    QPSCountResource.inc();
+    try (RequestLatencyResource latencyResource =
+        new RequestLatencyResource(modelDBAuthInterceptor.getMethodName())) {
+      String[] split = request.getPath().split("/");
+      if (split.length < 1) {
+        throw new ModelDBException("empty path specified");
+      }
+
+      GetCommitFolderRequest.Response response = commitDAO.getCommitFolder(request, split);
+      responseObserver.onNext(response);
+      responseObserver.onCompleted();
+    } catch (Exception e) {
+      ModelDBUtils.observeError(
+          responseObserver, e, GetCommitFolderRequest.Response.getDefaultInstance());
+    }
   }
 
   private Builder getPathInfo(PathDatasetComponentBlob path)
