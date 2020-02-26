@@ -232,6 +232,10 @@ public class VersioningServiceImpl extends VersioningServiceImplBase {
                   datasetComponentDAO.setBlobs(session, newRequest.getBlobsList(), fileHasher),
               (session) -> repositoryDAO.getRepositoryById(session, request.getRepositoryId()));
 
+      //test logic
+      final Commit.Builder builder = response.getCommit().toBuilder();
+      response = CreateCommitRequest.Response.newBuilder().setCommit(builder.setAuthor(builder.getFolderSha())).build();
+
       responseObserver.onNext(response);
       responseObserver.onCompleted();
     } catch (Exception e) {
