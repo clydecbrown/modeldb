@@ -95,7 +95,8 @@ public class CommitEntity {
         .addAllParentShas(getParentCommitIds())
         .setDateCreated(this.date_created)
         .setMessage(this.message)
-        .setAuthor(this.author)
+        //temp logic
+        .setAuthor(this.commit_hash)
         .build();
   }
 }
