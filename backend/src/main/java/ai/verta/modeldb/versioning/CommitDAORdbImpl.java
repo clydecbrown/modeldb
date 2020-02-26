@@ -25,6 +25,7 @@ import org.hibernate.Session;
 import org.hibernate.query.Query;
 
 public class CommitDAORdbImpl implements CommitDAO {
+
   private static final Logger LOGGER = LogManager.getLogger(CommitDAORdbImpl.class);
 
   public Response setCommit(Commit commit, BlobFunction setBlobs, RepositoryFunction getRepository)
@@ -53,10 +54,14 @@ public class CommitDAORdbImpl implements CommitDAO {
   public ListCommitsRequest.Response listCommits(ListCommitsRequest request) {
     try (Session session = ModelDBHibernateUtil.getSessionFactory().openSession()) {
       Stream<CommitEntity> list;
+      int pageLimit = request.getPagination().getPageLimit();
+      final int startPosition = (request.getPagination().getPageNumber() - 1) * pageLimit;
       if (request.getCommitBase().isEmpty() && request.getCommitHead().isEmpty()) {
         Query<CommitEntity> query =
             session.createQuery("From " + CommitEntity.class.getSimpleName());
-        list = query.list().stream().filter(c -> c.getParent_commits().isEmpty());
+        list = query.list().stream().filter(c -> c.getParent_commits().isEmpty())
+            .skip(startPosition)
+            .limit(pageLimit);
       } else {
         Query<CommitEntity> query;
         if (request.getCommitBase().isEmpty()) {
@@ -77,6 +82,8 @@ public class CommitDAORdbImpl implements CommitDAO {
           query.setParameter("parentHash", request.getCommitHead());
         }
         LOGGER.debug("Final query : {}", query.getQueryString());
+        query.setFirstResult(startPosition);
+        query.setMaxResults(pageLimit);
         list = query.list().stream();
       }
       return ListCommitsRequest.Response.newBuilder()
