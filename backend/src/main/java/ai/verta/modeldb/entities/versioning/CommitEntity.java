@@ -21,7 +21,7 @@ public class CommitEntity {
 
   public CommitEntity(
       RepositoryEntity repositoryEntity, List<CommitEntity> parentCommits, Commit internalCommit) {
-    this.commit_hash = internalCommit.getFolderSha();
+    this.commit_hash = internalCommit.getCommitSha();
     this.date_created = internalCommit.getDateCreated();
     this.message = internalCommit.getMessage();
     this.repository.add(repositoryEntity);
@@ -98,7 +98,7 @@ public class CommitEntity {
 
   public Commit toCommitProto() {
     return Commit.newBuilder()
-        .setFolderSha(this.commit_hash)
+        .setCommitSha(this.commit_hash)
         .addAllParentShas(getParentCommitIds())
         .setDateCreated(this.date_created)
         .setMessage(this.message)
