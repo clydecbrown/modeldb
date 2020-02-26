@@ -52,11 +52,19 @@ public class CommitDAORdbImpl implements CommitDAO {
   @Override
   public ListCommitsRequest.Response listCommits(ListCommitsRequest request) {
     try (Session session = ModelDBHibernateUtil.getSessionFactory().openSession()) {
-      Stream<CommitEntity> list;
+      Stream<CommitEntity> stream;
+      int pageLimit = request.getPagination().getPageLimit();
+      final int startPosition = (request.getPagination().getPageNumber() - 1) * pageLimit;
       if (request.getCommitBase().isEmpty() && request.getCommitHead().isEmpty()) {
         Query<CommitEntity> query =
             session.createQuery("From " + CommitEntity.class.getSimpleName());
-        list = query.list().stream().filter(c -> c.getParent_commits().isEmpty());
+        final List<CommitEntity> list = query.list();
+        stream = list.stream().filter(c -> c.getChild_commits().isEmpty());
+        if (request.hasPagination()) {
+          stream = stream
+              .skip(startPosition)
+              .limit(pageLimit);
+        }
       } else {
         Query<CommitEntity> query;
         if (request.getCommitBase().isEmpty()) {
@@ -77,10 +85,14 @@ public class CommitDAORdbImpl implements CommitDAO {
           query.setParameter("parentHash", request.getCommitHead());
         }
         LOGGER.debug("Final query : {}", query.getQueryString());
-        list = query.list().stream();
+        if (request.hasPagination()) {
+          query.setFirstResult(startPosition);
+          query.setMaxResults(pageLimit);
+        }
+        stream = query.list().stream();
       }
       return ListCommitsRequest.Response.newBuilder()
-          .addAllCommits(list.map(CommitEntity::toCommitProto).collect(Collectors.toList()))
+          .addAllCommits(stream.map(CommitEntity::toCommitProto).collect(Collectors.toList()))
           .build();
     }
   }
