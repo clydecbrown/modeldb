@@ -119,9 +119,14 @@ public class CommitDAORdbImpl implements CommitDAO {
 
   @Override
   public GetCommitBlobRequest.Response getCommitBlob(GetCommitBlobRequest request) {
+    return null;
+  }
+
+  /*@Override
+  public GetCommitBlobRequest.Response getCommitFolder(GetCommitBlobRequest request) {
     try (Session session = ModelDBHibernateUtil.getSessionFactory().openSession()) {
       session.beginTransaction();
-      RepositoryEntity repositoryEntity = request..apply(session);
+      session.get
       boolean exists = commitRepositoryMappingExists(session, commitHash, repositoryEntity.getId());
       if (!exists) {
         throw new ModelDBException(
@@ -132,5 +137,5 @@ public class CommitDAORdbImpl implements CommitDAO {
       session.getTransaction().commit();
       return commitEntity.toCommitProto();
     }
-  }
+  }*/
 }
