@@ -12,7 +12,6 @@ import ai.verta.modeldb.utils.ModelDBUtils;
 import ai.verta.modeldb.versioning.ListRepositoriesRequest.Response;
 import ai.verta.modeldb.versioning.PathDatasetComponentBlob.Builder;
 import ai.verta.modeldb.versioning.VersioningServiceGrpc.VersioningServiceImplBase;
-import ai.verta.uac.GetCollaborator;
 import io.grpc.Status.Code;
 import io.grpc.stub.StreamObserver;
 import java.security.NoSuchAlgorithmException;
@@ -239,6 +238,12 @@ public class VersioningServiceImpl extends VersioningServiceImplBase {
       ModelDBUtils.observeError(
           responseObserver, e, CreateCommitRequest.Response.getDefaultInstance());
     }
+  }
+
+  @Override
+  public void deleteCommit(
+      DeleteCommitRequest request, StreamObserver<DeleteCommitRequest.Response> responseObserver) {
+    super.deleteCommit(request, responseObserver);
   }
 
   @Override

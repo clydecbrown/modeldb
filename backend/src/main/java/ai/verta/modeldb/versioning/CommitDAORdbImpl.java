@@ -48,23 +48,27 @@ public class CommitDAORdbImpl implements CommitDAO {
     try (Session session = ModelDBHibernateUtil.getSessionFactory().openSession()) {
       Stream<CommitEntity> list;
       if (request.getCommitBase().isEmpty() && request.getCommitHead().isEmpty()) {
-        Query<CommitEntity> query = session.createQuery("select c From CommitEntity");
+        Query<CommitEntity> query =
+            session.createQuery("From " + CommitEntity.class.getSimpleName());
         list = query.list().stream().filter(c -> c.getParent_commits().isEmpty());
       } else {
         Query<CommitEntity> query;
         if (request.getCommitBase().isEmpty()) {
-          query = session.createQuery(
-              "select c From CommitEntity c join c.child_commits h where h.commit_hash='" + request
-                  .getCommitHead() + "'");
+          query =
+              session.createQuery(
+                  "From CommitEntity c where c.commit_parent.child_hash = :childHash");
+          query.setParameter("childHash", request.getCommitBase());
         } else if (request.getCommitHead().isEmpty()) {
-          query = session.createQuery(
-              "select c From CommitEntity c join c.parent_commits p where p.commit_hash='"
-                  + request.getCommitBase() + "'");
+          query =
+              session.createQuery(
+                  "From CommitEntity c where c.commit_parent.parent_hash = :parentHash");
+          query.setParameter("parentHash", request.getCommitHead());
         } else {
-          query = session.createQuery(
-              "select c From CommitEntity c join c.parent_commits p join c.child_commits h where p.commit_hash='"
-                  + request.getCommitBase() + "' and h.commit_hash='" + request.getCommitHead()
-                  + "'");
+          query =
+              session.createQuery(
+                  "From CommitEntity c WHERE c.commit_parent.child_hash = :childHash AND c.commit_parent.parent_hash = :parentHash");
+          query.setParameter("childHash", request.getCommitBase());
+          query.setParameter("parentHash", request.getCommitHead());
         }
         LOGGER.debug("Final query : {}", query.getQueryString());
         list = query.list().stream();

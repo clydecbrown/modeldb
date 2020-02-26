@@ -61,9 +61,6 @@ public class CommitEntity {
       inverseJoinColumns = @JoinColumn(name = "parent_hash"))
   private Set<CommitEntity> parent_commits = new HashSet<>();
 
-  @ManyToMany(mappedBy = "parent_commits")
-  private Set<CommitEntity> child_commits = new HashSet<>();
-
   public String getCommit_hash() {
     return commit_hash;
   }
