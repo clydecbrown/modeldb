@@ -11,4 +11,6 @@ interface CommitDAO {
   ListCommitsRequest.Response listCommits(ListCommitsRequest request);
 
   Commit getCommit(String commitHash, RepositoryFunction getRepository) throws ModelDBException;
+
+  GetCommitBlobRequest.Response getCommitBlob(GetCommitBlobRequest request);
 }

@@ -12,6 +12,7 @@ import ai.verta.modeldb.utils.ModelDBUtils;
 import ai.verta.modeldb.versioning.ListRepositoriesRequest.Response;
 import ai.verta.modeldb.versioning.PathDatasetComponentBlob.Builder;
 import ai.verta.modeldb.versioning.VersioningServiceGrpc.VersioningServiceImplBase;
+import ai.verta.uac.GetCollaborator;
 import io.grpc.Status.Code;
 import io.grpc.stub.StreamObserver;
 import java.security.NoSuchAlgorithmException;
@@ -156,6 +157,9 @@ public class VersioningServiceImpl extends VersioningServiceImplBase {
       ListCommitsRequest.Response response = commitDAO.listCommits(request);
       responseObserver.onNext(response);
       responseObserver.onCompleted();
+    } catch (Exception e) {
+      ModelDBUtils.observeError(
+          responseObserver, e, ListCommitsRequest.Response.getDefaultInstance());
     }
   }
 
@@ -248,7 +252,16 @@ public class VersioningServiceImpl extends VersioningServiceImplBase {
   public void getCommitBlob(
       GetCommitBlobRequest request,
       StreamObserver<GetCommitBlobRequest.Response> responseObserver) {
-    super.getCommitBlob(request, responseObserver);
+    QPSCountResource.inc();
+    try (RequestLatencyResource latencyResource =
+        new RequestLatencyResource(modelDBAuthInterceptor.getMethodName())) {
+      GetCommitBlobRequest.Response response = commitDAO.getCommitBlob(request);
+      responseObserver.onNext(response);
+      responseObserver.onCompleted();
+    } catch (Exception e) {
+      ModelDBUtils.observeError(
+          responseObserver, e, GetCommitBlobRequest.Response.getDefaultInstance());
+    }
   }
 
   @Override
