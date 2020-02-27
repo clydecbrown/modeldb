@@ -1,9 +1,11 @@
 package ai.verta.modeldb.versioning;
 
+import ai.verta.modeldb.ModelDBException;
 import ai.verta.modeldb.entities.ComponentEntity;
 import ai.verta.modeldb.entities.dataset.PathDatasetComponentBlobEntity;
 import ai.verta.modeldb.entities.dataset.S3DatasetComponentBlobEntity;
 import ai.verta.modeldb.entities.versioning.InternalFolderElementEntity;
+import ai.verta.modeldb.utils.ModelDBHibernateUtil;
 import com.google.protobuf.ProtocolStringList;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
@@ -15,6 +17,7 @@ import java.util.Map;
 import java.util.UUID;
 import org.hibernate.Session;
 import org.hibernate.cfg.NotYetImplementedException;
+import org.hibernate.query.Query;
 
 public class DatasetComponentDAORdbImpl implements DatasetComponentDAO {
 
@@ -162,9 +165,7 @@ public class DatasetComponentDAORdbImpl implements DatasetComponentDAO {
           final String sha256 = computeSHA(componentBlob);
           S3DatasetComponentBlobEntity s3DatasetComponentBlobEntity =
               new S3DatasetComponentBlobEntity(
-                  UUID.randomUUID().toString(),
-                  sha256,
-                  componentBlob.getPath()); // why is UUID required?
+                  UUID.randomUUID().toString(), sha256, componentBlob); // why is UUID required?
           componentEntities.add(s3DatasetComponentBlobEntity);
           treeChild.push(
               Arrays.asList(
@@ -211,5 +212,51 @@ public class DatasetComponentDAORdbImpl implements DatasetComponentDAO {
         .append(":md5:")
         .append(path.getMd5());
     return FileHasher.getSha(sb.toString());
+  }
+
+  @Override
+  public GetCommitBlobRequest.Response getCommitBlob(
+      RepositoryFunction repositoryFunction, String commitHash, ProtocolStringList locationList)
+      throws ModelDBException {
+    try (Session session = ModelDBHibernateUtil.getSessionFactory().openSession()) {
+      session.beginTransaction();
+      repositoryFunction.apply(session);
+
+      String s3ComponentQueryHQL =
+          "From "
+              + S3DatasetComponentBlobEntity.class.getSimpleName()
+              + " s3 WHERE s3.id.blob_hash = :commitHash AND s3.path = :path";
+
+      Query s3ComponentQuery = session.createQuery(s3ComponentQueryHQL);
+      s3ComponentQuery.setParameter("commitHash", commitHash);
+      s3ComponentQuery.setParameter("path", locationList.get(0));
+      S3DatasetComponentBlobEntity datasetComponentBlobEntity =
+          (S3DatasetComponentBlobEntity) s3ComponentQuery.uniqueResult();
+
+      DatasetBlob.Builder datasetBlobBuilder = DatasetBlob.newBuilder();
+      if (datasetComponentBlobEntity != null) {
+        datasetBlobBuilder.setS3(
+            S3DatasetBlob.newBuilder().addComponents(datasetComponentBlobEntity.toProto()).build());
+      } else {
+        String pathComponentQueryHQL =
+            "From "
+                + PathDatasetComponentBlobEntity.class.getSimpleName()
+                + " p WHERE p.id.blob_hash = :commitHash AND p.path = :path";
+
+        Query pathComponentQuery = session.createQuery(pathComponentQueryHQL);
+        pathComponentQuery.setParameter("commitHash", commitHash);
+        pathComponentQuery.setParameter("path", locationList.get(0));
+        PathDatasetComponentBlobEntity pathDatasetComponentBlobEntity =
+            (PathDatasetComponentBlobEntity) pathComponentQuery.uniqueResult();
+        datasetBlobBuilder.setPath(
+            PathDatasetBlob.newBuilder()
+                .addComponents(pathDatasetComponentBlobEntity.toProto())
+                .build());
+      }
+
+      session.getTransaction().commit();
+      Blob blob = Blob.newBuilder().setDataset(datasetBlobBuilder.build()).build();
+      return GetCommitBlobRequest.Response.newBuilder().setBlob(blob).build();
+    }
   }
 }
