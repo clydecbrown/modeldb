@@ -13,9 +13,12 @@ import com.google.protobuf.ProtocolStringList;
 import io.grpc.Status.Code;
 import java.security.NoSuchAlgorithmException;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.logging.log4j.LogManager;
@@ -49,44 +52,48 @@ public class CommitDAORdbImpl implements CommitDAO {
   }
 
   @Override
-  public ListCommitsRequest.Response listCommits(ListCommitsRequest request) {
+  public ListCommitsRequest.Response listCommits(ListCommitsRequest request, RepositoryFunction getRepository)
+      throws ModelDBException {
     try (Session session = ModelDBHibernateUtil.getSessionFactory().openSession()) {
       Stream<CommitEntity> stream;
       int pageLimit = request.getPagination().getPageLimit();
+      RepositoryEntity repository = getRepository.apply(session);
+      Set<CommitEntity> commits = repository.getCommits();
+      stream = commits.stream();
       final int startPosition = (request.getPagination().getPageNumber() - 1) * pageLimit;
       if (request.getCommitBase().isEmpty() && request.getCommitHead().isEmpty()) {
-        Query<CommitEntity> query =
-            session.createQuery("From " + CommitEntity.class.getSimpleName());
-        final List<CommitEntity> list = query.list();
-        stream = list.stream().filter(c -> c.getChild_commits().isEmpty());
-        if (request.hasPagination()) {
-          stream = stream.skip(startPosition).limit(pageLimit);
-        }
+        stream = stream.filter(c -> c.getChild_commits().isEmpty());
       } else {
-        Query<CommitEntity> query;
-        if (request.getCommitBase().isEmpty()) {
-          query =
-              session.createQuery(
-                  "From CommitEntity c where c.commit_parent.child_hash = :childHash");
-          query.setParameter("childHash", request.getCommitBase());
-        } else if (request.getCommitHead().isEmpty()) {
-          query =
-              session.createQuery(
-                  "From CommitEntity c where c.commit_parent.parent_hash = :parentHash");
-          query.setParameter("parentHash", request.getCommitHead());
+        Predicate<CommitEntity> predicateBase = commitEntity -> commitEntity.getCommit_hash()
+            .equals(request.getCommitBase());
+        Predicate<CommitEntity> predicateHead = commitEntity -> commitEntity.getCommit_hash().equals(request.getCommitHead());
+        Stream<Set<CommitEntity>> resStr;
+        if (request.getCommitHead().isEmpty()) {
+          resStr = stream.map(c -> c.getParent_commits().stream()
+              .filter(predicateBase)).map(s -> s.collect(Collectors.toSet()));
+        } else if (request.getCommitBase().isEmpty()) {
+          resStr = stream.map(c -> c.getChild_commits().stream()
+              .filter(predicateHead)).map(s -> s.collect(Collectors.toSet()));
         } else {
-          query =
-              session.createQuery(
-                  "From CommitEntity c WHERE c.commit_parent.child_hash = :childHash AND c.commit_parent.parent_hash = :parentHash");
-          query.setParameter("childHash", request.getCommitBase());
-          query.setParameter("parentHash", request.getCommitHead());
+          Stream<Set<CommitEntity>> resStr1 = stream.map(c -> c.getParent_commits().stream()
+              .filter(predicateBase)).map(s -> s.collect(Collectors.toSet()));
+          Stream<Set<CommitEntity>> resStr2 = stream.map(c -> c.getChild_commits().stream()
+              .filter(predicateHead)).map(s -> s.collect(Collectors.toSet()));
+          HashSet<Set<CommitEntity>> result = new HashSet<>();
+          result.addAll(resStr1.collect(Collectors.toSet()));
+          result.addAll(resStr2.collect(Collectors.toSet()));
+          resStr = result.stream();
         }
-        LOGGER.debug("Final query : {}", query.getQueryString());
-        if (request.hasPagination()) {
-          query.setFirstResult(startPosition);
-          query.setMaxResults(pageLimit);
-        }
-        stream = query.list().stream();
+        stream = resStr.reduce((l1, l2) -> {
+          HashSet<CommitEntity> set = new HashSet<>();
+          set.addAll(l1);
+          set.addAll(l2);
+          return set;
+        }).orElse(new HashSet<>()).stream();
+      }
+      stream = stream.sorted((c1, c2) -> c2.getDate_created().compareTo(c1.getDate_created()));
+      if (request.hasPagination()) {
+        stream = stream.skip(startPosition).limit(pageLimit);
       }
       return ListCommitsRequest.Response.newBuilder()
           .addAllCommits(stream.map(CommitEntity::toCommitProto).collect(Collectors.toList()))

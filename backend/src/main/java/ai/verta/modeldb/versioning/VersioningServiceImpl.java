@@ -154,7 +154,8 @@ public class VersioningServiceImpl extends VersioningServiceImplBase {
     QPSCountResource.inc();
     try (RequestLatencyResource latencyResource =
         new RequestLatencyResource(modelDBAuthInterceptor.getMethodName())) {
-      ListCommitsRequest.Response response = commitDAO.listCommits(request);
+      ListCommitsRequest.Response response = commitDAO.listCommits(request,
+          (session) -> repositoryDAO.getRepositoryById(session, request.getRepositoryId()));
       responseObserver.onNext(response);
       responseObserver.onCompleted();
     } catch (Exception e) {
