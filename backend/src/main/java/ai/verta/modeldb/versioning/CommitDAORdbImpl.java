@@ -21,10 +21,10 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javax.persistence.Query;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.hibernate.Session;
-import org.hibernate.query.Query;
 
 public class CommitDAORdbImpl implements CommitDAO {
   private static final Logger LOGGER = LogManager.getLogger(CommitDAORdbImpl.class);
@@ -33,12 +33,19 @@ public class CommitDAORdbImpl implements CommitDAO {
       throws ModelDBException, NoSuchAlgorithmException {
     try (Session session = ModelDBHibernateUtil.getSessionFactory().openSession()) {
       session.beginTransaction();
+      final String rootSha = setBlobs.apply(session);
+      final String commitSha = generateCommitSHA(rootSha, commit);
+      org.hibernate.query.Query query = session
+          .createQuery("Update " + InternalFolderElementEntity.class.getSimpleName() +
+              " set folder_hash='" + commitSha + "' where folder_hash='" + rootSha + "'");
+      int result = query.executeUpdate();
+      LOGGER.debug("Update folder to commit result: " + result);
       Commit internalCommit =
           Commit.newBuilder()
               .setDateCreated(new Date().getTime()) // TODO: add a client override flag
               .setAuthor(commit.getAuthor())
               .setMessage(commit.getAuthor())
-              .setCommitSha(generateCommitSHA(setBlobs.apply(session), commit))
+              .setCommitSha(commitSha)
               .build();
       CommitEntity commitEntity =
           new CommitEntity(
@@ -184,27 +191,13 @@ public class CommitDAORdbImpl implements CommitDAO {
 
   @Override
   public GetCommitFolderRequest.Response getCommitFolder(
-      GetCommitFolderRequest request, ProtocolStringList split) throws ModelDBException {
+      GetCommitFolderRequest request, ProtocolStringList locationList) throws ModelDBException {
     try (Session session = ModelDBHibernateUtil.getSessionFactory().openSession()) {
       session.beginTransaction();
       final String simpleName = InternalFolderElementEntity.class.getSimpleName();
       try {
-        InternalFolderElementEntity rootFolder =
-            (InternalFolderElementEntity)
-                session
-                    .createQuery(
-                        "From "
-                            + simpleName
-                            + " where element_sha = '"
-                            + request.getCommitSha()
-                            + "' and element_name = '"
-                            + split.get(0)
-                            + "'")
-                    .uniqueResultOptional()
-                    .orElseThrow(() -> new ModelDBException("No such path", Code.INVALID_ARGUMENT));
-
         String foundFolderSha =
-            findChildFolder(session, rootFolder, split.subList(1, split.size()));
+            findChildFolder(session, request.getCommitSha(), locationList);
 
         Optional result =
             session
@@ -244,9 +237,9 @@ public class CommitDAORdbImpl implements CommitDAO {
   }
 
   private String findChildFolder(
-      Session session, InternalFolderElementEntity rootFolder, List<String> path) throws Throwable {
+      Session session, String rootSha, List<String> path) throws Throwable {
     if (path.size() == 0) {
-      return rootFolder.getElement_sha();
+      return rootSha;
     }
     InternalFolderElementEntity nextFolder =
         (InternalFolderElementEntity)
@@ -255,12 +248,12 @@ public class CommitDAORdbImpl implements CommitDAO {
                     "From "
                         + InternalFolderElementEntity.class.getSimpleName()
                         + " where folder_hash = '"
-                        + rootFolder.getElement_sha()
+                        + rootSha
                         + "' and element_name = '"
                         + path.get(0)
                         + "'")
                 .uniqueResultOptional()
                 .orElseThrow(() -> new ModelDBException("No such path", Code.INVALID_ARGUMENT));
-    return findChildFolder(session, nextFolder, path.subList(1, path.size()));
+    return findChildFolder(session, nextFolder.getElement_sha(), path.subList(1, path.size()));
   }
 }
