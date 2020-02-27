@@ -191,27 +191,13 @@ public class CommitDAORdbImpl implements CommitDAO {
 
   @Override
   public GetCommitFolderRequest.Response getCommitFolder(
-      GetCommitFolderRequest request, ProtocolStringList split) throws ModelDBException {
+      GetCommitFolderRequest request, ProtocolStringList locationList) throws ModelDBException {
     try (Session session = ModelDBHibernateUtil.getSessionFactory().openSession()) {
       session.beginTransaction();
       final String simpleName = InternalFolderElementEntity.class.getSimpleName();
       try {
-        InternalFolderElementEntity rootFolder =
-            (InternalFolderElementEntity)
-                session
-                    .createQuery(
-                        "From "
-                            + simpleName
-                            + " where element_sha = '"
-                            + request.getCommitSha()
-                            + "' and element_name = '"
-                            + split.get(0)
-                            + "'")
-                    .uniqueResultOptional()
-                    .orElseThrow(() -> new ModelDBException("No such path", Code.INVALID_ARGUMENT));
-
         String foundFolderSha =
-            findChildFolder(session, rootFolder, split.subList(1, split.size()));
+            findChildFolder(session, request.getCommitSha(), locationList);
 
         Optional result =
             session
@@ -251,9 +237,9 @@ public class CommitDAORdbImpl implements CommitDAO {
   }
 
   private String findChildFolder(
-      Session session, InternalFolderElementEntity rootFolder, List<String> path) throws Throwable {
+      Session session, String rootSha, List<String> path) throws Throwable {
     if (path.size() == 0) {
-      return rootFolder.getElement_sha();
+      return rootSha;
     }
     InternalFolderElementEntity nextFolder =
         (InternalFolderElementEntity)
@@ -262,12 +248,12 @@ public class CommitDAORdbImpl implements CommitDAO {
                     "From "
                         + InternalFolderElementEntity.class.getSimpleName()
                         + " where folder_hash = '"
-                        + rootFolder.getElement_sha()
+                        + rootSha
                         + "' and element_name = '"
                         + path.get(0)
                         + "'")
                 .uniqueResultOptional()
                 .orElseThrow(() -> new ModelDBException("No such path", Code.INVALID_ARGUMENT));
-    return findChildFolder(session, nextFolder, path.subList(1, path.size()));
+    return findChildFolder(session, nextFolder.getElement_sha(), path.subList(1, path.size()));
   }
 }
