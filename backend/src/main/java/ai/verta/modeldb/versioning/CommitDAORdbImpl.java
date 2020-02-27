@@ -196,6 +196,11 @@ public class CommitDAORdbImpl implements CommitDAO {
       session.beginTransaction();
       final String simpleName = InternalFolderElementEntity.class.getSimpleName();
       try {
+
+        CommitEntity commit = session.get(CommitEntity.class, request.getCommitSha());
+        if (commit == null) {
+          throw new ModelDBException("No such commit", Code.NOT_FOUND);
+        }
         String foundFolderSha =
             findChildFolder(session, request.getCommitSha(), locationList.subList(1, locationList.size()));
 
