@@ -12,7 +12,6 @@ import ai.verta.modeldb.versioning.Folder.Builder;
 import com.google.protobuf.ProtocolStringList;
 import io.grpc.Status.Code;
 import java.security.NoSuchAlgorithmException;
-import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
@@ -22,10 +21,10 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javax.persistence.Query;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.hibernate.Session;
-import org.hibernate.query.Query;
 
 public class CommitDAORdbImpl implements CommitDAO {
   private static final Logger LOGGER = LogManager.getLogger(CommitDAORdbImpl.class);
@@ -34,12 +33,19 @@ public class CommitDAORdbImpl implements CommitDAO {
       throws ModelDBException, NoSuchAlgorithmException {
     try (Session session = ModelDBHibernateUtil.getSessionFactory().openSession()) {
       session.beginTransaction();
+      final String rootSha = setBlobs.apply(session);
+      final String commitSha = generateCommitSHA(rootSha, commit);
+      org.hibernate.query.Query query = session
+          .createQuery("Update " + InternalFolderElementEntity.class.getSimpleName() +
+              " set folder_hash='" + commitSha + "' where folder_hash='" + rootSha + "'");
+      int result = query.executeUpdate();
+      LOGGER.debug("Update folder to commit result: " + result);
       Commit internalCommit =
           Commit.newBuilder()
               .setDateCreated(new Date().getTime()) // TODO: add a client override flag
               .setAuthor(commit.getAuthor())
               .setMessage(commit.getAuthor())
-              .setCommitSha(generateCommitSHA(setBlobs.apply(session), commit))
+              .setCommitSha(commitSha)
               .build();
       CommitEntity commitEntity =
           new CommitEntity(
