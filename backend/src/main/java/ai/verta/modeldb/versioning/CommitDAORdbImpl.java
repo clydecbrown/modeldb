@@ -12,6 +12,7 @@ import ai.verta.modeldb.versioning.Folder.Builder;
 import com.google.protobuf.ProtocolStringList;
 import io.grpc.Status.Code;
 import java.security.NoSuchAlgorithmException;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
@@ -35,10 +36,10 @@ public class CommitDAORdbImpl implements CommitDAO {
       session.beginTransaction();
       Commit internalCommit =
           Commit.newBuilder()
-              .setDateCreated(new Date().getTime())
+              .setDateCreated(new Date().getTime()) // TODO: add a client override flag
               .setAuthor(commit.getAuthor())
               .setMessage(commit.getAuthor())
-              .setCommitSha(setBlobs.apply(session))
+              .setCommitSha(generateCommitSHA(setBlobs.apply(session), commit))
               .build();
       CommitEntity commitEntity =
           new CommitEntity(
@@ -52,8 +53,8 @@ public class CommitDAORdbImpl implements CommitDAO {
   }
 
   @Override
-  public ListCommitsRequest.Response listCommits(ListCommitsRequest request, RepositoryFunction getRepository)
-      throws ModelDBException {
+  public ListCommitsRequest.Response listCommits(
+      ListCommitsRequest request, RepositoryFunction getRepository) throws ModelDBException {
     try (Session session = ModelDBHibernateUtil.getSessionFactory().openSession()) {
       Stream<CommitEntity> stream;
       int pageLimit = request.getPagination().getPageLimit();
@@ -64,32 +65,45 @@ public class CommitDAORdbImpl implements CommitDAO {
       if (request.getCommitBase().isEmpty() && request.getCommitHead().isEmpty()) {
         stream = stream.filter(c -> c.getChild_commits().isEmpty());
       } else {
-        Predicate<CommitEntity> predicateBase = commitEntity -> commitEntity.getCommit_hash()
-            .equals(request.getCommitBase());
-        Predicate<CommitEntity> predicateHead = commitEntity -> commitEntity.getCommit_hash().equals(request.getCommitHead());
-        Stream<Set<CommitEntity>> resStr;
+        Predicate<CommitEntity> predicateBase =
+            commitEntity -> commitEntity.getCommit_hash().equals(request.getCommitBase());
+        Predicate<CommitEntity> predicateHead =
+            commitEntity -> commitEntity.getCommit_hash().equals(request.getCommitHead());
+        Stream<Set<CommitEntity>> filteredStream;
         if (request.getCommitHead().isEmpty()) {
-          resStr = stream.map(c -> c.getParent_commits().stream()
-              .filter(predicateBase)).map(s -> s.collect(Collectors.toSet()));
+          filteredStream =
+              stream
+                  .map(c -> c.getParent_commits().stream().filter(predicateBase))
+                  .map(s -> s.collect(Collectors.toSet()));
         } else if (request.getCommitBase().isEmpty()) {
-          resStr = stream.map(c -> c.getChild_commits().stream()
-              .filter(predicateHead)).map(s -> s.collect(Collectors.toSet()));
+          filteredStream =
+              stream
+                  .map(c -> c.getChild_commits().stream().filter(predicateHead))
+                  .map(s -> s.collect(Collectors.toSet()));
         } else {
-          Stream<Set<CommitEntity>> resStr1 = stream.map(c -> c.getParent_commits().stream()
-              .filter(predicateBase)).map(s -> s.collect(Collectors.toSet()));
-          Stream<Set<CommitEntity>> resStr2 = stream.map(c -> c.getChild_commits().stream()
-              .filter(predicateHead)).map(s -> s.collect(Collectors.toSet()));
+          Stream<Set<CommitEntity>> resStr1 =
+              stream
+                  .map(c -> c.getParent_commits().stream().filter(predicateBase))
+                  .map(s -> s.collect(Collectors.toSet()));
+          Stream<Set<CommitEntity>> resStr2 =
+              stream
+                  .map(c -> c.getChild_commits().stream().filter(predicateHead))
+                  .map(s -> s.collect(Collectors.toSet()));
           HashSet<Set<CommitEntity>> result = new HashSet<>();
           result.addAll(resStr1.collect(Collectors.toSet()));
           result.addAll(resStr2.collect(Collectors.toSet()));
-          resStr = result.stream();
+          filteredStream = result.stream();
         }
-        stream = resStr.reduce((l1, l2) -> {
-          HashSet<CommitEntity> set = new HashSet<>();
-          set.addAll(l1);
-          set.addAll(l2);
-          return set;
-        }).orElse(new HashSet<>()).stream();
+        stream =
+            filteredStream
+                .reduce(
+                    (l1, l2) -> {
+                      HashSet<CommitEntity> set = new HashSet<>();
+                      set.addAll(l1);
+                      set.addAll(l2);
+                      return set;
+                    })
+                .orElse(new HashSet<>()).stream();
       }
       stream = stream.sorted((c1, c2) -> c2.getDate_created().compareTo(c1.getDate_created()));
       if (request.hasPagination()) {
@@ -99,6 +113,27 @@ public class CommitDAORdbImpl implements CommitDAO {
           .addAllCommits(stream.map(CommitEntity::toCommitProto).collect(Collectors.toList()))
           .build();
     }
+  }
+
+  private String generateCommitSHA(String blobSHA, Commit commit) throws NoSuchAlgorithmException {
+
+    StringBuilder sb = new StringBuilder();
+    if (!commit.getParentShasList().isEmpty()) {
+      List<String> parentSHAs = commit.getParentShasList();
+      Collections.sort(parentSHAs); // TODO  EL/AJ to verify /optimize
+      sb.append("parent:");
+      parentSHAs.forEach(pSHA -> sb.append(pSHA)); // TODO  EL/AJ to verify /optimize
+    }
+    sb.append(":message:")
+        .append(commit.getMessage())
+        .append(":date_created:")
+        .append(commit.getDateCreated())
+        .append(":author:")
+        .append(commit.getAuthor())
+        .append(":rootHash:")
+        .append(blobSHA);
+
+    return FileHasher.getSha(sb.toString());
   }
 
   private List<CommitEntity> getCommits(Session session, ProtocolStringList parentShasList)
