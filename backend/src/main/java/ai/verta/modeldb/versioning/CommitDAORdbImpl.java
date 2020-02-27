@@ -197,8 +197,7 @@ public class CommitDAORdbImpl implements CommitDAO {
       final String simpleName = InternalFolderElementEntity.class.getSimpleName();
       try {
         String foundFolderSha =
-            findChildFolder(session, request.getCommitSha(), locationList);
-
+            findChildFolder(session, request.getCommitSha(), locationList.subList(1, locationList.size()));
         Optional result =
             session
                 .createQuery("From " + simpleName + " where folder_hash = '" + foundFolderSha + "'")

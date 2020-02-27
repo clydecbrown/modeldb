@@ -99,10 +99,9 @@ public class DatasetComponentDAORdbImpl implements DatasetComponentDAO {
     List<ComponentEntity> componentEntities = new LinkedList<>();
     TreeElem rootTree = new TreeElem();
     for (BlobExpanded blob : blobsList) {
-      TreeElem treeElem = new TreeElem();
       switch (blob.getBlob().getContentCase()) {
         case DATASET:
-          processDataset(session, blob, treeElem, fileHasher, getBlobType(blob), componentEntities);
+          processDataset(session, blob, rootTree, fileHasher, getBlobType(blob), componentEntities);
           break;
         case ENVIRONMENT:
           throw new NotYetImplementedException(
@@ -112,8 +111,6 @@ public class DatasetComponentDAORdbImpl implements DatasetComponentDAO {
           throw new IllegalStateException(
               "unexpected Dataset type"); // TODO EL/AJ to throw right exceptions
       }
-
-      rootTree.children.putIfAbsent(treeElem.path, treeElem);
     }
     final InternalFolderElement internalFolderElement = rootTree.saveFolders(session, fileHasher);
     final String elementSha = internalFolderElement.getElementSha();
