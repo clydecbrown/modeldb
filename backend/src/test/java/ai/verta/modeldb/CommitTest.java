@@ -175,11 +175,7 @@ public class CommitTest {
         CreateCommitRequest.newBuilder()
             .setRepositoryId(RepositoryIdentification.newBuilder().setRepoId(repoId).build())
             .setCommit(commit)
-            .addBlobs(
-                BlobExpanded.newBuilder()
-                    .setBlob(getBlob())
-                    .setPath("https://github.com/VertaAI/modeldb")
-                    .build())
+            .addBlobs(BlobExpanded.newBuilder().setBlob(getBlob()).addLocation("/").build())
             .build();
 
     return createCommitRequest;

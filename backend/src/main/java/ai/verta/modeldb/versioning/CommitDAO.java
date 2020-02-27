@@ -2,6 +2,7 @@ package ai.verta.modeldb.versioning;
 
 import ai.verta.modeldb.ModelDBException;
 import ai.verta.modeldb.versioning.CreateCommitRequest.Response;
+import com.google.protobuf.ProtocolStringList;
 import java.security.NoSuchAlgorithmException;
 
 interface CommitDAO {
@@ -14,6 +15,6 @@ interface CommitDAO {
 
   GetCommitBlobRequest.Response getCommitBlob(GetCommitBlobRequest request);
 
-  GetCommitFolderRequest.Response getCommitFolder(GetCommitFolderRequest request,
-      String[] split) throws ModelDBException;
+  GetCommitFolderRequest.Response getCommitFolder(
+      GetCommitFolderRequest request, ProtocolStringList split) throws ModelDBException;
 }

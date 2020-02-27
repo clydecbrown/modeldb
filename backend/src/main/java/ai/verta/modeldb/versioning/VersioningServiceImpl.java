@@ -12,6 +12,7 @@ import ai.verta.modeldb.utils.ModelDBUtils;
 import ai.verta.modeldb.versioning.ListRepositoriesRequest.Response;
 import ai.verta.modeldb.versioning.PathDatasetComponentBlob.Builder;
 import ai.verta.modeldb.versioning.VersioningServiceGrpc.VersioningServiceImplBase;
+import com.google.protobuf.ProtocolStringList;
 import io.grpc.Status.Code;
 import io.grpc.stub.StreamObserver;
 import java.security.NoSuchAlgorithmException;
@@ -276,12 +277,12 @@ public class VersioningServiceImpl extends VersioningServiceImplBase {
     QPSCountResource.inc();
     try (RequestLatencyResource latencyResource =
         new RequestLatencyResource(modelDBAuthInterceptor.getMethodName())) {
-      String[] split = request.getPath().split("/");
-      if (split.length < 1) {
+      ProtocolStringList locationList = request.getLocationList();
+      if (locationList.size() < 1) {
         throw new ModelDBException("empty path specified");
       }
 
-      GetCommitFolderRequest.Response response = commitDAO.getCommitFolder(request, split);
+      GetCommitFolderRequest.Response response = commitDAO.getCommitFolder(request, locationList);
       responseObserver.onNext(response);
       responseObserver.onCompleted();
     } catch (Exception e) {

@@ -106,7 +106,8 @@ public class DatasetComponentDAORdbImpl implements DatasetComponentDAO {
                     UUID.randomUUID().toString(), sha256, componentBlob.getPath());
             componentEntities.add(s3DatasetComponentBlobEntity);
             treeChild.push(
-                Arrays.asList(locationList.get(locationList.size() - 1), componentBlob.getPath().getPath()),
+                Arrays.asList(
+                    locationList.get(locationList.size() - 1), componentBlob.getPath().getPath()),
                 componentBlob.getPath().getSha256(),
                 componentBlob.getClass().getSimpleName());
           }

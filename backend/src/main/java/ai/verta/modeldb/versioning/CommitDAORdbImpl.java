@@ -12,7 +12,6 @@ import ai.verta.modeldb.versioning.Folder.Builder;
 import com.google.protobuf.ProtocolStringList;
 import io.grpc.Status.Code;
 import java.security.NoSuchAlgorithmException;
-import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Objects;
@@ -61,9 +60,7 @@ public class CommitDAORdbImpl implements CommitDAO {
         final List<CommitEntity> list = query.list();
         stream = list.stream().filter(c -> c.getChild_commits().isEmpty());
         if (request.hasPagination()) {
-          stream = stream
-              .skip(startPosition)
-              .limit(pageLimit);
+          stream = stream.skip(startPosition).limit(pageLimit);
         }
       } else {
         Query<CommitEntity> query;
@@ -145,39 +142,57 @@ public class CommitDAORdbImpl implements CommitDAO {
   }
 
   @Override
-  public GetCommitFolderRequest.Response getCommitFolder(GetCommitFolderRequest request,
-      String[] split) throws ModelDBException {
+  public GetCommitFolderRequest.Response getCommitFolder(
+      GetCommitFolderRequest request, ProtocolStringList split) throws ModelDBException {
     try (Session session = ModelDBHibernateUtil.getSessionFactory().openSession()) {
       session.beginTransaction();
       final String simpleName = InternalFolderElementEntity.class.getSimpleName();
       try {
-      InternalFolderElementEntity rootFolder = (InternalFolderElementEntity) session.createQuery(
-          "From " + simpleName + " where element_sha = '"
-              + request.getCommitSha() +"' and element_name = '" + split[0] + "'").uniqueResultOptional().orElseThrow(() -> new ModelDBException("No such path", Code.INVALID_ARGUMENT));
+        InternalFolderElementEntity rootFolder =
+            (InternalFolderElementEntity)
+                session
+                    .createQuery(
+                        "From "
+                            + simpleName
+                            + " where element_sha = '"
+                            + request.getCommitSha()
+                            + "' and element_name = '"
+                            + split.get(0)
+                            + "'")
+                    .uniqueResultOptional()
+                    .orElseThrow(() -> new ModelDBException("No such path", Code.INVALID_ARGUMENT));
 
-      String foundFolderSha = findChildFolder(session, rootFolder, Arrays.asList(
-          split).subList(1, split.length));
+        String foundFolderSha =
+            findChildFolder(session, rootFolder, split.subList(1, split.size()));
 
-      Optional result = session.createQuery(
-          "From " + simpleName + " where folder_hash = '"
-              + foundFolderSha + "'").list().stream().map(d -> {
-        InternalFolderElementEntity entity = (InternalFolderElementEntity) d;
-        Builder folder = Folder.newBuilder();
-        FolderElement.Builder folderElement = FolderElement.newBuilder()
-            .setElementName(entity.getElement_name()).setCreatedByCommit(request.getCommitSha());
+        Optional result =
+            session
+                .createQuery("From " + simpleName + " where folder_hash = '" + foundFolderSha + "'")
+                .list().stream()
+                .map(
+                    d -> {
+                      InternalFolderElementEntity entity = (InternalFolderElementEntity) d;
+                      Builder folder = Folder.newBuilder();
+                      FolderElement.Builder folderElement =
+                          FolderElement.newBuilder()
+                              .setElementName(entity.getElement_name())
+                              .setCreatedByCommit(request.getCommitSha());
 
-        if (entity.getElement_type().equals(TREE)) {
-          folder.addSubFolders(folderElement);
-        } else {
-          folder.addBlobs(folderElement);
-        }
-        return folder.build();
-      }).reduce((a, b) -> ((Folder) a).toBuilder().mergeFrom((Folder) b).build());
+                      if (entity.getElement_type().equals(TREE)) {
+                        folder.addSubFolders(folderElement);
+                      } else {
+                        folder.addBlobs(folderElement);
+                      }
+                      return folder.build();
+                    })
+                .reduce((a, b) -> ((Folder) a).toBuilder().mergeFrom((Folder) b).build());
 
-      session.getTransaction().commit();
-        final Folder value = (Folder) result .orElseThrow(() -> new ModelDBException("Can't find folder", Code.INVALID_ARGUMENT));
-        return GetCommitFolderRequest.Response.newBuilder().setFolder(value)
-            .build();
+        session.getTransaction().commit();
+        final Folder value =
+            (Folder)
+                result.orElseThrow(
+                    () -> new ModelDBException("Can't find folder", Code.INVALID_ARGUMENT));
+        return GetCommitFolderRequest.Response.newBuilder().setFolder(value).build();
       } catch (Throwable throwable) {
         if (throwable instanceof ModelDBException) {
           throw (ModelDBException) throwable;
@@ -187,14 +202,24 @@ public class CommitDAORdbImpl implements CommitDAO {
     }
   }
 
-  private String findChildFolder(Session session,
-      InternalFolderElementEntity rootFolder, List<String> path) throws Throwable {
+  private String findChildFolder(
+      Session session, InternalFolderElementEntity rootFolder, List<String> path) throws Throwable {
     if (path.size() == 0) {
       return rootFolder.getElement_sha();
     }
-    InternalFolderElementEntity nextFolder = (InternalFolderElementEntity) session.createQuery(
-        "From " + InternalFolderElementEntity.class.getSimpleName() + " where folder_hash = '"
-            + rootFolder.getElement_sha() + "' and element_name = '" + path.get(0) + "'").uniqueResultOptional().orElseThrow(() -> new ModelDBException("No such path", Code.INVALID_ARGUMENT));
+    InternalFolderElementEntity nextFolder =
+        (InternalFolderElementEntity)
+            session
+                .createQuery(
+                    "From "
+                        + InternalFolderElementEntity.class.getSimpleName()
+                        + " where folder_hash = '"
+                        + rootFolder.getElement_sha()
+                        + "' and element_name = '"
+                        + path.get(0)
+                        + "'")
+                .uniqueResultOptional()
+                .orElseThrow(() -> new ModelDBException("No such path", Code.INVALID_ARGUMENT));
     return findChildFolder(session, nextFolder, path.subList(1, path.size()));
   }
 }
