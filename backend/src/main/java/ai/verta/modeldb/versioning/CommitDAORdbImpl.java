@@ -28,7 +28,9 @@ import org.apache.logging.log4j.Logger;
 import org.hibernate.Session;
 
 public class CommitDAORdbImpl implements CommitDAO {
+
   private static final Logger LOGGER = LogManager.getLogger(CommitDAORdbImpl.class);
+  public static final String CANT_FIND_FOLDER = "Can't find folder";
 
   /**
    * commit : details of the commit and the blobs to be added setBlobs : recursively creates trees
@@ -208,7 +210,7 @@ public class CommitDAORdbImpl implements CommitDAO {
           throw new ModelDBException("No such commit", Code.NOT_FOUND);
         }
         String foundFolderSha =
-            findChildFolder(session, request.getCommitSha(), locationList.subList(1, locationList.size()));
+            findChildFolder(session, commit.getRootSha(), locationList);
 
         Optional result =
             session
@@ -236,7 +238,7 @@ public class CommitDAORdbImpl implements CommitDAO {
         final Folder value =
             (Folder)
                 result.orElseThrow(
-                    () -> new ModelDBException("Can't find folder", Code.INVALID_ARGUMENT));
+                    () -> new ModelDBException(CANT_FIND_FOLDER, Code.NOT_FOUND));
         return GetCommitFolderRequest.Response.newBuilder().setFolder(value).build();
       } catch (Throwable throwable) {
         if (throwable instanceof ModelDBException) {
@@ -264,7 +266,7 @@ public class CommitDAORdbImpl implements CommitDAO {
                         + path.get(0)
                         + "'")
                 .uniqueResultOptional()
-                .orElseThrow(() -> new ModelDBException("No such path", Code.INVALID_ARGUMENT));
+                .orElseThrow(() -> new ModelDBException(CANT_FIND_FOLDER, Code.NOT_FOUND));
     return findChildFolder(session, nextFolder.getElement_sha(), path.subList(1, path.size()));
   }
 }

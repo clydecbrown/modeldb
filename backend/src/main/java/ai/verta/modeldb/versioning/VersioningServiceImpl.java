@@ -304,9 +304,6 @@ public class VersioningServiceImpl extends VersioningServiceImplBase {
     try (RequestLatencyResource latencyResource =
         new RequestLatencyResource(modelDBAuthInterceptor.getMethodName())) {
       ProtocolStringList locationList = request.getLocationList();
-      if (locationList.size() < 1) {
-        throw new ModelDBException("empty path specified");
-      }
 
       GetCommitFolderRequest.Response response = commitDAO.getCommitFolder(request, locationList);
       responseObserver.onNext(response);
