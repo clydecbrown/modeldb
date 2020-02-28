@@ -4,7 +4,6 @@ import ai.verta.modeldb.entities.ComponentEntity;
 import ai.verta.modeldb.entities.dataset.PathDatasetComponentBlobEntity;
 import ai.verta.modeldb.entities.dataset.S3DatasetComponentBlobEntity;
 import ai.verta.modeldb.entities.versioning.InternalFolderElementEntity;
-import com.google.protobuf.ProtocolStringList;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -24,21 +23,24 @@ public class DatasetComponentDAORdbImpl implements DatasetComponentDAO {
     String path;
     String sha256 = null;
     String type = null;
+    ComponentEntity componentEntity;
     Map<String, TreeElem> children = new HashMap<>();
 
     TreeElem() {}
 
-    TreeElem push(List<String> pathList, String sha256, String type) {
+    TreeElem push(
+        List<String> pathList, String sha256, String type, ComponentEntity componentEntity) {
       path = pathList.get(0);
       if (pathList.size() > 1) {
         children.putIfAbsent(pathList.get(1), new TreeElem());
         if (this.type == null) this.type = TREE;
         return children
             .get(pathList.get(1))
-            .push(pathList.subList(1, pathList.size()), sha256, type);
+            .push(pathList.subList(1, pathList.size()), sha256, type, componentEntity);
       } else {
         this.sha256 = sha256;
         this.type = type;
+        this.componentEntity = componentEntity;
         return this;
       }
     }
@@ -53,6 +55,10 @@ public class DatasetComponentDAORdbImpl implements DatasetComponentDAO {
 
     String getType() {
       return type;
+    }
+
+    public ComponentEntity getComponentEntity() {
+      return componentEntity;
     }
 
     InternalFolderElement saveFolders(Session session, FileHasher fileHasher)
@@ -74,31 +80,65 @@ public class DatasetComponentDAORdbImpl implements DatasetComponentDAO {
             internalFolder.addBlobs(build);
           }
         }
-        final InternalFolderElement build =
+        final InternalFolderElement treeBuild =
             InternalFolderElement.newBuilder()
                 .setElementName(getPath())
                 .setElementSha(fileHasher.getSha(internalFolder.build()))
                 .build();
         Iterator<TreeElem> iter = children.values().iterator();
         for (InternalFolderElement elem : elems) {
+          final TreeElem next = iter.next();
           session.saveOrUpdate(
-              new InternalFolderElementEntity(elem, build.getElementSha(), iter.next().getType()));
+              new ConnectionBuilder(
+                      elem, treeBuild.getElementSha(), next.getType(), next.getComponentEntity())
+                  .build());
         }
-        return build;
+        return treeBuild;
+      }
+    }
+
+    private class ConnectionBuilder {
+      private final InternalFolderElement elem;
+      private final String baseBlobHash;
+      private final String type;
+      private final ComponentEntity componentEntity;
+
+      public ConnectionBuilder(
+          InternalFolderElement elem,
+          String folderHash,
+          String type,
+          ComponentEntity componentEntity) {
+        this.elem = elem;
+        this.baseBlobHash = folderHash;
+        this.type = type;
+        this.componentEntity = componentEntity;
+      }
+
+      public Object build() {
+        if (componentEntity != null) {
+          componentEntity.setBaseBlobHash(baseBlobHash);
+          return componentEntity;
+        }
+        return new InternalFolderElementEntity(elem, baseBlobHash, type);
       }
     }
   }
 
-  /** returns the sha */
+  /**
+   * Goes through each BlobExpanded creating TREE/BLOB node top down and computing SHA bottom up
+   * there is a rootSHA which holds one TREE node of each BlobExpanded
+   */
   @Override
   public String setBlobs(Session session, List<BlobExpanded> blobsList, FileHasher fileHasher)
       throws NoSuchAlgorithmException {
     List<ComponentEntity> componentEntities = new LinkedList<>();
     TreeElem rootTree = new TreeElem();
     for (BlobExpanded blob : blobsList) {
+      TreeElem treeElem =
+          rootTree.children.getOrDefault(blob.getLocationList().get(0), new TreeElem());
       switch (blob.getBlob().getContentCase()) {
         case DATASET:
-          processDataset(session, blob, rootTree, fileHasher, getBlobType(blob), componentEntities);
+          processDataset(session, blob, treeElem, fileHasher, getBlobType(blob), componentEntities);
           break;
         case ENVIRONMENT:
           throw new NotYetImplementedException(
@@ -108,13 +148,10 @@ public class DatasetComponentDAORdbImpl implements DatasetComponentDAO {
           throw new IllegalStateException(
               "unexpected Dataset type"); // TODO EL/AJ to throw right exceptions
       }
+      rootTree.children.putIfAbsent(treeElem.path, treeElem);
     }
     final InternalFolderElement internalFolderElement = rootTree.saveFolders(session, fileHasher);
-    final String elementSha = internalFolderElement.getElementSha();
-    for (ComponentEntity componentEntity : componentEntities) {
-      session.saveOrUpdate(componentEntity);
-    }
-    return elementSha;
+    return internalFolderElement.getElementSha();
   }
 
   private String getBlobType(BlobExpanded blob) {
@@ -140,6 +177,16 @@ public class DatasetComponentDAORdbImpl implements DatasetComponentDAO {
     }
   }
 
+  /**
+   * @param session
+   * @param blob : a commit is a collection of multiple BlobExpanded
+   * @param treeElem : Each blob or folder need to be converted to a tree element. the process is
+   *     bootstrapped with an empty tree for each BlobExpanded
+   * @param fileHasher
+   * @param blobType
+   * @param componentEntities
+   * @throws NoSuchAlgorithmException
+   */
   private void processDataset(
       Session session,
       BlobExpanded blob,
@@ -150,9 +197,13 @@ public class DatasetComponentDAORdbImpl implements DatasetComponentDAO {
       throws NoSuchAlgorithmException {
     final DatasetBlob dataset = blob.getBlob().getDataset();
     final List<String> locationList = blob.getLocationList();
+
     TreeElem treeChild =
         treeElem.push(
-            locationList, fileHasher.getSha(dataset), blobType); // need to ensure dataset is sorted
+            locationList,
+            fileHasher.getSha(dataset),
+            blobType,
+            null); // need to ensure dataset is sorted
     switch (dataset.getContentCase()) {
       case S3:
         for (S3DatasetComponentBlob componentBlob : dataset.getS3().getComponentsList()) {
@@ -167,7 +218,8 @@ public class DatasetComponentDAORdbImpl implements DatasetComponentDAO {
               Arrays.asList(
                   locationList.get(locationList.size() - 1), componentBlob.getPath().getPath()),
               computeSHA(componentBlob.getPath()),
-              componentBlob.getClass().getSimpleName());
+              componentBlob.getClass().getSimpleName(),
+              s3DatasetComponentBlobEntity);
         }
         break;
       case PATH:
@@ -180,7 +232,8 @@ public class DatasetComponentDAORdbImpl implements DatasetComponentDAO {
           treeChild.push(
               Arrays.asList(locationList.get(locationList.size() - 1), componentBlob.getPath()),
               computeSHA(componentBlob),
-              componentBlob.getClass().getSimpleName());
+              componentBlob.getClass().getSimpleName(),
+              pathDatasetComponentBlobEntity);
         }
         break;
       default:

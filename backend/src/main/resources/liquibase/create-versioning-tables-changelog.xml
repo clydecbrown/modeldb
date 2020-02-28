@@ -38,11 +38,13 @@
         </createTable>
 
         <createTable tableName="folder_element">
-            <column name="id" type="int8" autoIncrement="true" incrementBy="1">
+            <column name="folder_hash" type="varchar(32)">
                 <constraints primaryKey="true" nullable="false"/>
             </column>
-            <column name="folder_hash" type="varchar(32)"/>
-            <column name="element_sha" type="varchar(32)"/>
+            <column name="element_sha" type="varchar(32)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+
             <column name="element_name" type="varchar(200)"/>
             <column name="element_type" type="varchar(50)"/>
         </createTable>
@@ -200,5 +202,17 @@
           constraintName="fk_child_hash_commit_parent"
           referencedColumnNames="commit_hash"
           referencedTableName="commit"/>
+    </changeSet>
+    <changeSet author="rshetye" id="commit_root_sha_mapping">
+        <addColumn tableName="commit">
+            <column name="root_sha" type="varchar(64)"/>
+        </addColumn>
+    </changeSet>
+    <changeSet author="rshetye" id="commit_root_sha_mapping_fk">
+        <addForeignKeyConstraint baseColumnNames="root_sha"
+          baseTableName="commit"
+          constraintName="fk_root_sha"
+          referencedColumnNames="folder_sha"
+          referencedTableName="folder_element"/>
     </changeSet>
 </databaseChangeLog>

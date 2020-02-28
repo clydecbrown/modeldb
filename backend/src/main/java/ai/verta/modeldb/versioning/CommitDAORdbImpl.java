@@ -2,6 +2,7 @@ package ai.verta.modeldb.versioning;
 
 import static ai.verta.modeldb.versioning.DatasetComponentDAORdbImpl.TREE;
 
+import ai.verta.modeldb.App;
 import ai.verta.modeldb.ModelDBException;
 import ai.verta.modeldb.entities.versioning.CommitEntity;
 import ai.verta.modeldb.entities.versioning.InternalFolderElementEntity;
@@ -29,29 +30,33 @@ import org.hibernate.Session;
 public class CommitDAORdbImpl implements CommitDAO {
   private static final Logger LOGGER = LogManager.getLogger(CommitDAORdbImpl.class);
 
+  /**
+   * commit : details of the commit and the blobs to be added setBlobs : recursively creates trees
+   * and blobs in top down fashion and generates SHAs in bottom up fashion getRepository : fetches
+   * the repository the commit is made on
+   */
   public Response setCommit(Commit commit, BlobFunction setBlobs, RepositoryFunction getRepository)
       throws ModelDBException, NoSuchAlgorithmException {
     try (Session session = ModelDBHibernateUtil.getSessionFactory().openSession()) {
       session.beginTransaction();
       final String rootSha = setBlobs.apply(session);
-      final String commitSha = generateCommitSHA(rootSha, commit);
-      org.hibernate.query.Query query = session
-          .createQuery("Update " + InternalFolderElementEntity.class.getSimpleName() +
-              " set folder_hash='" + commitSha + "' where folder_hash='" + rootSha + "'");
-      int result = query.executeUpdate();
-      LOGGER.debug("Update folder to commit result: " + result);
+      long timeCreated = new Date().getTime();
+      if (App.getInstance().getStoreClientCreationTimestamp() && commit.getDateCreated() != 0L) {
+        timeCreated = commit.getDateCreated();
+      }
+      final String commitSha = generateCommitSHA(rootSha, commit, timeCreated);
       Commit internalCommit =
           Commit.newBuilder()
-              .setDateCreated(new Date().getTime()) // TODO: add a client override flag
+              .setDateCreated(timeCreated)
               .setAuthor(commit.getAuthor())
-              .setMessage(commit.getAuthor())
+              .setMessage(commit.getMessage())
               .setCommitSha(commitSha)
               .build();
       CommitEntity commitEntity =
           new CommitEntity(
               getRepository.apply(session),
               getCommits(session, commit.getParentShasList()),
-              internalCommit);
+              internalCommit, rootSha);
       session.saveOrUpdate(commitEntity);
       session.getTransaction().commit();
       return Response.newBuilder().setCommit(commitEntity.toCommitProto()).build();
@@ -121,19 +126,20 @@ public class CommitDAORdbImpl implements CommitDAO {
     }
   }
 
-  private String generateCommitSHA(String blobSHA, Commit commit) throws NoSuchAlgorithmException {
+  private String generateCommitSHA(String blobSHA, Commit commit, long timeCreated)
+      throws NoSuchAlgorithmException {
 
     StringBuilder sb = new StringBuilder();
     if (!commit.getParentShasList().isEmpty()) {
       List<String> parentSHAs = commit.getParentShasList();
       parentSHAs = parentSHAs.stream().sorted().collect(Collectors.toList());
       sb.append("parent:");
-      parentSHAs.forEach(pSHA -> sb.append(pSHA)); // TODO  EL/AJ to verify /optimize
+      parentSHAs.forEach(pSHA -> sb.append(pSHA));
     }
     sb.append(":message:")
         .append(commit.getMessage())
         .append(":date_created:")
-        .append(commit.getDateCreated())
+        .append(timeCreated)
         .append(":author:")
         .append(commit.getAuthor())
         .append(":rootHash:")

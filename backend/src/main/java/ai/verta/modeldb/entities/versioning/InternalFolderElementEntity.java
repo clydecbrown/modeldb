@@ -2,16 +2,15 @@ package ai.verta.modeldb.entities.versioning;
 
 import ai.verta.modeldb.versioning.FolderElement;
 import ai.verta.modeldb.versioning.InternalFolderElement;
+import java.io.Serializable;
 import javax.persistence.Column;
 import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.Table;
 
 @Entity
 @Table(name = "folder_element")
-public class InternalFolderElementEntity {
+public class InternalFolderElementEntity implements Serializable {
   public InternalFolderElementEntity() {}
 
   public InternalFolderElementEntity(
@@ -23,13 +22,10 @@ public class InternalFolderElementEntity {
   }
 
   @Id
-  @GeneratedValue(strategy = GenerationType.IDENTITY)
-  @Column(name = "id", updatable = false, nullable = false, columnDefinition = "UNSIGNED")
-  private Long id;
-
   @Column(name = "folder_hash", nullable = false)
   private String folder_hash;
 
+  @Id
   @Column(name = "element_sha", nullable = false)
   private String element_sha;
 
@@ -38,10 +34,6 @@ public class InternalFolderElementEntity {
 
   @Column(name = "element_name", nullable = false)
   private String element_name;
-
-  public Long getId() {
-    return id;
-  }
 
   public String getFolder_hash() {
     return folder_hash;
