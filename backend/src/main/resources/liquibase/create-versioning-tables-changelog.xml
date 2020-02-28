@@ -213,4 +213,11 @@
           referencedColumnNames="folder_sha"
           referencedTableName="folder_element"/>
     </changeSet>
+
+    <changeSet author="lezhevg" id="change_folder_element_id">
+        <sql>SET @@tidb_allow_remove_auto_inc=1;ALTER TABLE folder_element MODIFY `auto_increment_field` INT, DROP PRIMARY KEY, ADD PRIMARY KEY(folder_hash, element_sha);</sql>
+      <modifyDataType tableName="folder_element" columnName="id" newDataType="int8"/>
+        <addPrimaryKey tableName="folder_element" columnNames="folder_hash, element_sha"/>
+        <dropPrimaryKey tableName="folder_element"/>
+    </changeSet>
 </databaseChangeLog>
