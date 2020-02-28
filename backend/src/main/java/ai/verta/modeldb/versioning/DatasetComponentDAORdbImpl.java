@@ -4,10 +4,12 @@ import ai.verta.modeldb.ModelDBException;
 import ai.verta.modeldb.entities.ComponentEntity;
 import ai.verta.modeldb.entities.dataset.PathDatasetComponentBlobEntity;
 import ai.verta.modeldb.entities.dataset.S3DatasetComponentBlobEntity;
+import ai.verta.modeldb.entities.versioning.CommitEntity;
 import ai.verta.modeldb.entities.versioning.InternalFolderElementEntity;
 import ai.verta.modeldb.utils.ModelDBHibernateUtil;
 import com.google.protobuf.ProtocolStringList;
 import io.grpc.Status;
+import io.grpc.Status.Code;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -315,7 +317,12 @@ public class DatasetComponentDAORdbImpl implements DatasetComponentDAO {
       session.beginTransaction();
       repositoryFunction.apply(session);
 
-      List<String> folderShaList = getTreeShaList(session, commitHash, locationList);
+      CommitEntity commit = session.get(CommitEntity.class, commitHash);
+      if (commit == null) {
+        throw new ModelDBException("No such commit", Code.NOT_FOUND);
+      }
+
+      List<String> folderShaList = getTreeShaList(session, commit.getRootSha(), locationList);
       List<String> blobShaList = getDatasetBlobShaList(session, folderShaList);
 
       String s3ComponentQueryHQL =
