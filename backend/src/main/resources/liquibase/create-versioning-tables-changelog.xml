@@ -38,11 +38,13 @@
         </createTable>
 
         <createTable tableName="folder_element">
-            <column name="id" type="int8" autoIncrement="true" incrementBy="1">
+            <column name="folder_hash" type="varchar(32)">
                 <constraints primaryKey="true" nullable="false"/>
             </column>
-            <column name="folder_hash" type="varchar(32)"/>
-            <column name="element_sha" type="varchar(32)"/>
+            <column name="element_sha" type="varchar(32)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+
             <column name="element_name" type="varchar(200)"/>
             <column name="element_type" type="varchar(50)"/>
         </createTable>
