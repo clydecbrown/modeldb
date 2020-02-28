@@ -25,13 +25,13 @@ public class InternalFolderElementEntity implements Serializable {
   @Column(name = "folder_hash", nullable = false)
   private String folder_hash;
 
-  @Id
   @Column(name = "element_sha", nullable = false)
   private String element_sha;
 
   @Column(name = "element_type")
   private String element_type;
 
+  @Id
   @Column(name = "element_name", nullable = false)
   private String element_name;
 

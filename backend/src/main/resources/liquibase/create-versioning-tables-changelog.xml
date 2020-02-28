@@ -41,11 +41,11 @@
             <column name="folder_hash" type="varchar(32)">
                 <constraints primaryKey="true" nullable="false"/>
             </column>
-            <column name="element_sha" type="varchar(32)">
+            <column name="element_sha" type="varchar(32)" />
+
+            <column name="element_name" type="varchar(200)">
                 <constraints primaryKey="true" nullable="false"/>
             </column>
-
-            <column name="element_name" type="varchar(200)"/>
             <column name="element_type" type="varchar(50)"/>
         </createTable>
 
