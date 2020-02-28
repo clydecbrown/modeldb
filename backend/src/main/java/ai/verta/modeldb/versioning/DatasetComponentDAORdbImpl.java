@@ -1,9 +1,13 @@
 package ai.verta.modeldb.versioning;
 
+import ai.verta.modeldb.ModelDBException;
 import ai.verta.modeldb.entities.ComponentEntity;
 import ai.verta.modeldb.entities.dataset.PathDatasetComponentBlobEntity;
 import ai.verta.modeldb.entities.dataset.S3DatasetComponentBlobEntity;
 import ai.verta.modeldb.entities.versioning.InternalFolderElementEntity;
+import ai.verta.modeldb.utils.ModelDBHibernateUtil;
+import com.google.protobuf.ProtocolStringList;
+import io.grpc.Status;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -12,8 +16,10 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.hibernate.Session;
 import org.hibernate.cfg.NotYetImplementedException;
+import org.hibernate.query.Query;
 
 public class DatasetComponentDAORdbImpl implements DatasetComponentDAO {
 
@@ -210,9 +216,7 @@ public class DatasetComponentDAORdbImpl implements DatasetComponentDAO {
           final String sha256 = computeSHA(componentBlob);
           S3DatasetComponentBlobEntity s3DatasetComponentBlobEntity =
               new S3DatasetComponentBlobEntity(
-                  UUID.randomUUID().toString(),
-                  sha256,
-                  componentBlob.getPath()); // why is UUID required?
+                  UUID.randomUUID().toString(), sha256, componentBlob); // why is UUID required?
           componentEntities.add(s3DatasetComponentBlobEntity);
           treeChild.push(
               Arrays.asList(
@@ -261,5 +265,103 @@ public class DatasetComponentDAORdbImpl implements DatasetComponentDAO {
         .append(":md5:")
         .append(path.getMd5());
     return FileHasher.getSha(sb.toString());
+  }
+
+  private List<String> getTreeShaList(
+      Session session, String commitHash, ProtocolStringList locationList) throws ModelDBException {
+    String folderQueryHQL =
+        "From "
+            + InternalFolderElementEntity.class.getSimpleName()
+            + " ife WHERE ife.element_name in (:locations) AND ife.element_type = :type AND ife.folder_hash = :commitHash";
+    Query<InternalFolderElementEntity> fetchTreeQuery = session.createQuery(folderQueryHQL);
+    fetchTreeQuery.setParameterList("locations", locationList);
+    fetchTreeQuery.setParameter("type", TREE);
+    fetchTreeQuery.setParameter("commitHash", commitHash);
+    List<InternalFolderElementEntity> folderElementEntities = fetchTreeQuery.list();
+
+    if (folderElementEntities == null || folderElementEntities.isEmpty()) {
+      throw new ModelDBException("Provided location not found", Status.Code.NOT_FOUND);
+    }
+
+    return folderElementEntities.stream()
+        .map(InternalFolderElementEntity::getElement_sha)
+        .collect(Collectors.toList());
+  }
+
+  private List<String> getDatasetBlobShaList(Session session, List<String> folderShaList)
+      throws ModelDBException {
+    String blobQueryHQL =
+        "From "
+            + InternalFolderElementEntity.class.getSimpleName()
+            + " ife WHERE ife.folder_hash in (:folderHashList)";
+    Query<InternalFolderElementEntity> fetchBlobQuery = session.createQuery(blobQueryHQL);
+    fetchBlobQuery.setParameterList("folderHashList", folderShaList);
+    List<InternalFolderElementEntity> blobElementEntities = fetchBlobQuery.list();
+
+    if (blobElementEntities == null || blobElementEntities.isEmpty()) {
+      throw new ModelDBException("Dataset blob not found", Status.Code.NOT_FOUND);
+    }
+
+    return blobElementEntities.stream()
+        .map(InternalFolderElementEntity::getElement_sha)
+        .collect(Collectors.toList());
+  }
+
+  @Override
+  public GetCommitBlobRequest.Response getCommitBlob(
+      RepositoryFunction repositoryFunction, String commitHash, ProtocolStringList locationList)
+      throws ModelDBException {
+    try (Session session = ModelDBHibernateUtil.getSessionFactory().openSession()) {
+      session.beginTransaction();
+      repositoryFunction.apply(session);
+
+      List<String> folderShaList = getTreeShaList(session, commitHash, locationList);
+      List<String> blobShaList = getDatasetBlobShaList(session, folderShaList);
+
+      String s3ComponentQueryHQL =
+          "From "
+              + S3DatasetComponentBlobEntity.class.getSimpleName()
+              + " s3 WHERE s3.id.s3_dataset_blob_id in (:blobShas)";
+
+      Query<S3DatasetComponentBlobEntity> s3ComponentQuery =
+          session.createQuery(s3ComponentQueryHQL);
+      s3ComponentQuery.setParameterList("blobShas", blobShaList);
+      List<S3DatasetComponentBlobEntity> datasetComponentBlobEntities = s3ComponentQuery.list();
+
+      DatasetBlob.Builder datasetBlobBuilder = DatasetBlob.newBuilder();
+      if (datasetComponentBlobEntities != null && datasetComponentBlobEntities.size() > 0) {
+        List<S3DatasetComponentBlob> componentBlobs =
+            datasetComponentBlobEntities.stream()
+                .map(S3DatasetComponentBlobEntity::toProto)
+                .collect(Collectors.toList());
+        datasetBlobBuilder.setS3(
+            S3DatasetBlob.newBuilder().addAllComponents(componentBlobs).build());
+      } else {
+        String pathComponentQueryHQL =
+            "From "
+                + PathDatasetComponentBlobEntity.class.getSimpleName()
+                + " p WHERE p.id.path_dataset_blob_id in (:blobShas)";
+
+        Query<PathDatasetComponentBlobEntity> pathComponentQuery =
+            session.createQuery(pathComponentQueryHQL);
+        pathComponentQuery.setParameterList("blobShas", blobShaList);
+        List<PathDatasetComponentBlobEntity> pathDatasetComponentBlobEntities =
+            pathComponentQuery.list();
+
+        if (pathDatasetComponentBlobEntities != null
+            && pathDatasetComponentBlobEntities.size() > 0) {
+          List<PathDatasetComponentBlob> componentBlobs =
+              pathDatasetComponentBlobEntities.stream()
+                  .map(PathDatasetComponentBlobEntity::toProto)
+                  .collect(Collectors.toList());
+          datasetBlobBuilder.setPath(
+              PathDatasetBlob.newBuilder().addAllComponents(componentBlobs).build());
+        }
+      }
+
+      session.getTransaction().commit();
+      Blob blob = Blob.newBuilder().setDataset(datasetBlobBuilder.build()).build();
+      return GetCommitBlobRequest.Response.newBuilder().setBlob(blob).build();
+    }
   }
 }
