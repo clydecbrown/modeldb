@@ -12,6 +12,7 @@ import ai.verta.modeldb.utils.ModelDBUtils;
 import ai.verta.modeldb.versioning.ListRepositoriesRequest.Response;
 import ai.verta.modeldb.versioning.PathDatasetComponentBlob.Builder;
 import ai.verta.modeldb.versioning.VersioningServiceGrpc.VersioningServiceImplBase;
+import ai.verta.uac.UserInfo;
 import io.grpc.Status.Code;
 import io.grpc.stub.StreamObserver;
 import java.security.NoSuchAlgorithmException;
@@ -202,10 +203,18 @@ public class VersioningServiceImpl extends VersioningServiceImplBase {
         throw new ModelDBException("Blob list should not be empty", Code.INVALID_ARGUMENT);
       }
       CreateCommitRequest.Builder newRequest = clearCommitDetails(request);
+      UserInfo userInfo = authService.getCurrentLoginUserInfo();
+      Commit.Builder commit = request.getCommit().toBuilder();
+      if (userInfo != null) {
+        String vertaId = authService.getVertaIdFromUserInfo(userInfo);
+        commit.setAuthor(vertaId);
+      } else {
+        throw new ModelDBException("Can't find user information", Code.UNAUTHENTICATED);
+      }
 
       CreateCommitRequest.Response response =
           commitDAO.setCommit(
-              request.getCommit(),
+              commit.build(),
               (session) ->
                   datasetComponentDAO.setBlobs(session, newRequest.getBlobsList(), fileHasher),
               (session) -> repositoryDAO.getRepositoryById(session, request.getRepositoryId()));
