@@ -10,6 +10,7 @@ import ai.verta.modeldb.monitoring.QPSCountResource;
 import ai.verta.modeldb.monitoring.RequestLatencyResource;
 import ai.verta.modeldb.utils.ModelDBUtils;
 import ai.verta.modeldb.versioning.ListRepositoriesRequest.Response;
+import ai.verta.modeldb.versioning.SetRepository.Builder;
 import ai.verta.modeldb.versioning.VersioningServiceGrpc.VersioningServiceImplBase;
 import ai.verta.uac.UserInfo;
 import io.grpc.Status.Code;
@@ -101,14 +102,15 @@ public class VersioningServiceImpl extends VersioningServiceImplBase {
         }
 
         UserInfo userInfo = authService.getCurrentLoginUserInfo();
-        String vertaId = authService.getVertaIdFromUserInfo(userInfo);
+        Builder requestBuilder = request.toBuilder();
+        if (userInfo != null) {
+          String vertaId = authService.getVertaIdFromUserInfo(userInfo);
+          requestBuilder.setRepository(request.getRepository().toBuilder().setOwner(vertaId));
+        } else {
+          throw new ModelDBException("Unauthenticated", Code.UNAUTHENTICATED);
+        }
         SetRepository.Response response =
-            repositoryDAO.setRepository(
-                request
-                    .toBuilder()
-                    .setRepository(request.getRepository().toBuilder().setOwner(vertaId))
-                    .build(),
-                true);
+            repositoryDAO.setRepository(requestBuilder.build(), true);
         responseObserver.onNext(response);
         responseObserver.onCompleted();
       }
