@@ -61,6 +61,12 @@ public class VersioningServiceImpl extends VersioningServiceImplBase {
     try {
       try (RequestLatencyResource latencyResource =
           new RequestLatencyResource(modelDBAuthInterceptor.getMethodName())) {
+        if (request.hasPagination()) {
+          if (request.getPagination().getPageLimit() < 1
+              && request.getPagination().getPageLimit() > 100) {
+            throw new ModelDBException("Page limit is invalid", Code.INVALID_ARGUMENT);
+          }
+        }
         Response response = repositoryDAO.listRepositories(request);
         responseObserver.onNext(response);
         responseObserver.onCompleted();
@@ -150,7 +156,19 @@ public class VersioningServiceImpl extends VersioningServiceImplBase {
   @Override
   public void listCommits(
       ListCommitsRequest request, StreamObserver<ListCommitsRequest.Response> responseObserver) {
-    super.listCommits(request, responseObserver);
+    QPSCountResource.inc();
+    try (RequestLatencyResource latencyResource =
+        new RequestLatencyResource(modelDBAuthInterceptor.getMethodName())) {
+      ListCommitsRequest.Response response =
+          commitDAO.listCommits(
+              request,
+              (session) -> repositoryDAO.getRepositoryById(session, request.getRepositoryId()));
+      responseObserver.onNext(response);
+      responseObserver.onCompleted();
+    } catch (Exception e) {
+      ModelDBUtils.observeError(
+          responseObserver, e, ListCommitsRequest.Response.getDefaultInstance());
+    }
   }
 
   @Override
@@ -255,6 +273,27 @@ public class VersioningServiceImpl extends VersioningServiceImplBase {
   }
 
   @Override
+  public void deleteCommit(
+      DeleteCommitRequest request, StreamObserver<DeleteCommitRequest.Response> responseObserver) {
+    QPSCountResource.inc();
+    try {
+      try (RequestLatencyResource latencyResource =
+          new RequestLatencyResource(modelDBAuthInterceptor.getMethodName())) {
+        DeleteCommitRequest.Response response =
+            commitDAO.deleteCommit(
+                request.getCommitSha(),
+                (session) -> repositoryDAO.getRepositoryById(session, request.getRepositoryId()));
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
+      }
+    } catch (Exception e) {
+      e.printStackTrace();
+      ModelDBUtils.observeError(
+          responseObserver, e, DeleteCommitRequest.Response.getDefaultInstance());
+    }
+  }
+
+  @Override
   public void listCommitBlobs(
       ListCommitBlobsRequest request,
       StreamObserver<ListCommitBlobsRequest.Response> responseObserver) {
@@ -262,17 +301,29 @@ public class VersioningServiceImpl extends VersioningServiceImplBase {
   }
 
   @Override
-  public void getCommitBlob(
-      GetCommitBlobRequest request,
-      StreamObserver<GetCommitBlobRequest.Response> responseObserver) {
-    super.getCommitBlob(request, responseObserver);
-  }
+  public void getCommitComponent(
+      GetCommitComponentRequest request,
+      StreamObserver<GetCommitComponentRequest.Response> responseObserver) {
+    QPSCountResource.inc();
+    try (RequestLatencyResource latencyResource =
+        new RequestLatencyResource(modelDBAuthInterceptor.getMethodName())) {
+      if (request.getCommitSha().isEmpty()) {
+        throw new ModelDBException("Commit SHA should not be empty", Code.INVALID_ARGUMENT);
+      } else if (request.getLocationList().isEmpty()) {
+        throw new ModelDBException("Blob location should not be empty", Code.INVALID_ARGUMENT);
+      }
 
-  @Override
-  public void getCommitFolder(
-      GetCommitFolderRequest request,
-      StreamObserver<GetCommitFolderRequest.Response> responseObserver) {
-    super.getCommitFolder(request, responseObserver);
+      GetCommitComponentRequest.Response response =
+          datasetComponentDAO.getCommitComponent(
+              (session) -> repositoryDAO.getRepositoryById(session, request.getRepositoryId()),
+              request.getCommitSha(),
+              request.getLocationList());
+      responseObserver.onNext(response);
+      responseObserver.onCompleted();
+    } catch (Exception e) {
+      ModelDBUtils.observeError(
+          responseObserver, e, GetCommitComponentRequest.Response.getDefaultInstance());
+    }
   }
 
   private Builder getPathInfo(PathDatasetComponentBlob path)

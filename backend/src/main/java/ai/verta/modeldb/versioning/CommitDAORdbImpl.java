@@ -3,7 +3,6 @@ package ai.verta.modeldb.versioning;
 import ai.verta.modeldb.App;
 import ai.verta.modeldb.ModelDBException;
 import ai.verta.modeldb.entities.versioning.CommitEntity;
-import ai.verta.modeldb.entities.versioning.InternalFolderElementEntity;
 import ai.verta.modeldb.entities.versioning.RepositoryEntity;
 import ai.verta.modeldb.utils.ModelDBHibernateUtil;
 import ai.verta.modeldb.versioning.CreateCommitRequest.Response;
@@ -13,14 +12,13 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Date;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
-import javax.persistence.Query;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.hibernate.Session;
+import org.hibernate.query.Query;
 
 public class CommitDAORdbImpl implements CommitDAO {
-  private static final Logger LOGGER = LogManager.getLogger(CommitDAORdbImpl.class);
+  public static final String CANT_FIND_FOLDER = "Can't find folder";
 
   /**
    * commit : details of the commit and the blobs to be added setBlobs : recursively creates trees
@@ -48,10 +46,65 @@ public class CommitDAORdbImpl implements CommitDAO {
           new CommitEntity(
               getRepository.apply(session),
               getCommits(session, commit.getParentShasList()),
-              internalCommit, rootSha);
+              internalCommit,
+              rootSha);
       session.saveOrUpdate(commitEntity);
       session.getTransaction().commit();
       return Response.newBuilder().setCommit(commitEntity.toCommitProto()).build();
+    }
+  }
+
+  @Override
+  public ListCommitsRequest.Response listCommits(
+      ListCommitsRequest request, RepositoryFunction getRepository) throws ModelDBException {
+    try (Session session = ModelDBHibernateUtil.getSessionFactory().openSession()) {
+      RepositoryEntity repository = getRepository.apply(session);
+
+      StringBuilder commitQueryBuilder =
+          new StringBuilder(
+              "SELECT cm FROM "
+                  + CommitEntity.class.getSimpleName()
+                  + " cm LEFT JOIN cm.repository repo WHERE repo.id = :repoId ");
+      if (!request.getCommitBase().isEmpty()) {
+        CommitEntity baseCommitEntity =
+            Optional.ofNullable(session.get(CommitEntity.class, request.getCommitBase()))
+                .orElseThrow(
+                    () ->
+                        new ModelDBException(
+                            "Couldn't find base commit by sha : " + request.getCommitBase(),
+                            Code.NOT_FOUND));
+        Long baseTime = baseCommitEntity.getDate_created();
+        commitQueryBuilder.append(" AND cm.date_created >= " + baseTime);
+      }
+
+      if (!request.getCommitHead().isEmpty()) {
+        CommitEntity headCommitEntity =
+            Optional.ofNullable(session.get(CommitEntity.class, request.getCommitHead()))
+                .orElseThrow(
+                    () ->
+                        new ModelDBException(
+                            "Couldn't find head commit by sha : " + request.getCommitHead(),
+                            Code.NOT_FOUND));
+        Long headTime = headCommitEntity.getDate_created();
+        commitQueryBuilder.append(" AND cm.date_created <= " + headTime);
+      }
+
+      Query<CommitEntity> commitEntityQuery =
+          session.createQuery(
+              commitQueryBuilder.append(" ORDER BY cm.date_created ASC").toString());
+      commitEntityQuery.setParameter("repoId", repository.getId());
+      if (request.hasPagination()) {
+        int pageLimit = request.getPagination().getPageLimit();
+        final int startPosition = (request.getPagination().getPageNumber() - 1) * pageLimit;
+        commitEntityQuery.setFirstResult(startPosition);
+        commitEntityQuery.setMaxResults(pageLimit);
+      }
+
+      List<Commit> commits =
+          commitEntityQuery.list().stream()
+              .map(CommitEntity::toCommitProto)
+              .collect(Collectors.toList());
+      return ListCommitsRequest.Response.newBuilder().addAllCommits(commits).build();
     }
   }
 
@@ -77,28 +130,23 @@ public class CommitDAORdbImpl implements CommitDAO {
     return FileHasher.getSha(sb.toString());
   }
 
-  private List<CommitEntity> getCommits(Session session, ProtocolStringList parentShasList)
+  /**
+   * @param session
+   * @param ShasList : a list of sha for which the function returns commits
+   * @return
+   * @throws ModelDBException : if any of the input sha are not identified as a commit
+   */
+  private List<CommitEntity> getCommits(Session session, ProtocolStringList ShasList)
       throws ModelDBException {
     List<CommitEntity> result =
-        parentShasList.stream()
+        ShasList.stream()
             .map(sha -> session.get(CommitEntity.class, sha))
             .filter(Objects::nonNull)
             .collect(Collectors.toList());
-    if (result.size() != parentShasList.size()) {
-      throw new ModelDBException("Cannot find parent commits", Code.INVALID_ARGUMENT);
+    if (result.size() != ShasList.size()) {
+      throw new ModelDBException("Cannot find commits", Code.INVALID_ARGUMENT);
     }
     return result;
-  }
-
-  private boolean commitRepositoryMappingExists(
-      Session session, String commitHash, Long repositoryId) {
-    String queryString =
-        "SELECT count(*) FROM repository_commit rc WHERE rc.commit_hash = :commitHash AND rc.repository_id = :repoId";
-    Query query = session.createQuery(queryString);
-    query.setParameter("commitHash", commitHash);
-    query.setParameter("repoId", repositoryId);
-    Long count = (Long) query.getSingleResult();
-    return count > 0;
   }
 
   @Override
@@ -107,15 +155,50 @@ public class CommitDAORdbImpl implements CommitDAO {
     try (Session session = ModelDBHibernateUtil.getSessionFactory().openSession()) {
       session.beginTransaction();
       RepositoryEntity repositoryEntity = getRepository.apply(session);
-      boolean exists = commitRepositoryMappingExists(session, commitHash, repositoryEntity.getId());
+      boolean exists =
+          VersioningUtils.commitRepositoryMappingExists(
+              session, commitHash, repositoryEntity.getId());
       if (!exists) {
         throw new ModelDBException(
             "Commit_hash and repository_id mapping not found", Code.NOT_FOUND);
       }
 
       CommitEntity commitEntity = session.load(CommitEntity.class, commitHash);
+
       session.getTransaction().commit();
       return commitEntity.toCommitProto();
+    }
+  }
+
+  @Override
+  public DeleteCommitRequest.Response deleteCommit(
+      String commitHash, RepositoryFunction getRepository) throws ModelDBException {
+    try (Session session = ModelDBHibernateUtil.getSessionFactory().openSession()) {
+      session.beginTransaction();
+      RepositoryEntity repositoryEntity = getRepository.apply(session);
+      boolean exists =
+          VersioningUtils.commitRepositoryMappingExists(
+              session, commitHash, repositoryEntity.getId());
+      if (!exists) {
+        throw new ModelDBException(
+            "Commit_hash and repository_id mapping not found", Code.NOT_FOUND);
+      }
+
+      Query deleteQuery =
+          session.createQuery(
+              "From "
+                  + CommitEntity.class.getSimpleName()
+                  + " c WHERE c.commit_hash = :commitHash");
+      deleteQuery.setParameter("commitHash", commitHash);
+      CommitEntity commitEntity = (CommitEntity) deleteQuery.uniqueResult();
+      if (commitEntity.getRepository().size() == 1) {
+        session.delete(commitEntity);
+      } else {
+        commitEntity.getRepository().remove(repositoryEntity);
+        session.update(commitEntity);
+      }
+      session.getTransaction().commit();
+      return DeleteCommitRequest.Response.newBuilder().build();
     }
   }
 }

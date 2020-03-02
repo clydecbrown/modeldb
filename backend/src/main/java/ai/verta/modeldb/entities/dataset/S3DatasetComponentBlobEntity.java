@@ -2,6 +2,7 @@ package ai.verta.modeldb.entities.dataset;
 
 import ai.verta.modeldb.entities.ComponentEntity;
 import ai.verta.modeldb.versioning.PathDatasetComponentBlob;
+import ai.verta.modeldb.versioning.S3DatasetComponentBlob;
 import java.io.Serializable;
 import java.util.Objects;
 import javax.persistence.Column;
@@ -16,9 +17,10 @@ public class S3DatasetComponentBlobEntity implements ComponentEntity {
   public S3DatasetComponentBlobEntity() {}
 
   public S3DatasetComponentBlobEntity(
-      String s3DatasetBlobId, String blobHash, PathDatasetComponentBlob pathDatasetComponentBlob) {
+      String blobHash, S3DatasetComponentBlob s3DatasetComponentBlob) {
 
-    this.id = new S3DatasetComponentBlobId(blobHash, s3DatasetBlobId);
+    PathDatasetComponentBlob pathDatasetComponentBlob = s3DatasetComponentBlob.getPath();
+    this.id = new S3DatasetComponentBlobId(blobHash);
     this.path = pathDatasetComponentBlob.getPath();
     this.size = pathDatasetComponentBlob.getSize();
     this.last_modified_at_source = pathDatasetComponentBlob.getLastModifiedAtSource();
@@ -63,13 +65,16 @@ public class S3DatasetComponentBlobEntity implements ComponentEntity {
     return md5;
   }
 
-  public PathDatasetComponentBlob toProto() {
-    return PathDatasetComponentBlob.newBuilder()
-        .setPath(this.path)
-        .setSize(this.size)
-        .setLastModifiedAtSource(this.last_modified_at_source)
-        .setSha256(this.sha256)
-        .setMd5(this.md5)
+  public S3DatasetComponentBlob toProto() {
+    return S3DatasetComponentBlob.newBuilder()
+        .setPath(
+            PathDatasetComponentBlob.newBuilder()
+                .setPath(this.path)
+                .setSize(this.size)
+                .setLastModifiedAtSource(this.last_modified_at_source)
+                .setSha256(this.sha256)
+                .setMd5(this.md5)
+                .build())
         .build();
   }
 
@@ -93,9 +98,8 @@ class S3DatasetComponentBlobId implements Serializable {
   @Column(name = "s3_dataset_blob_id", nullable = false, columnDefinition = "varchar", length = 64)
   private String s3_dataset_blob_id;
 
-  public S3DatasetComponentBlobId(String blobHash, String pathDatasetBlobId) {
+  public S3DatasetComponentBlobId(String blobHash) {
     this.blob_hash = blobHash;
-    this.s3_dataset_blob_id = pathDatasetBlobId;
   }
 
   private S3DatasetComponentBlobId() {}

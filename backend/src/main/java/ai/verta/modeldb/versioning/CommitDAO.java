@@ -8,5 +8,11 @@ interface CommitDAO {
   Response setCommit(Commit commit, BlobFunction setBlobs, RepositoryFunction getRepository)
       throws ModelDBException, NoSuchAlgorithmException;
 
+  ListCommitsRequest.Response listCommits(
+      ListCommitsRequest request, RepositoryFunction getRepository) throws ModelDBException;
+
   Commit getCommit(String commitHash, RepositoryFunction getRepository) throws ModelDBException;
+
+  DeleteCommitRequest.Response deleteCommit(String commitHash, RepositoryFunction getRepository)
+      throws ModelDBException;
 }
