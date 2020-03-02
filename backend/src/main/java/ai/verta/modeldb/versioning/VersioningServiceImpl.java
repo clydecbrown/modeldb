@@ -211,10 +211,18 @@ public class VersioningServiceImpl extends VersioningServiceImplBase {
         throw new ModelDBException("Blob list should not be empty", Code.INVALID_ARGUMENT);
       }
       CreateCommitRequest.Builder newRequest = clearCommitDetails(request);
+      UserInfo userInfo = authService.getCurrentLoginUserInfo();
+      Commit.Builder commit = request.getCommit().toBuilder();
+      if (userInfo != null) {
+        String vertaId = authService.getVertaIdFromUserInfo(userInfo);
+        commit.setAuthor(vertaId);
+      } else {
+        throw new ModelDBException("Can't find user information", Code.UNAUTHENTICATED);
+      }
 
       CreateCommitRequest.Response response =
           commitDAO.setCommit(
-              request.getCommit(),
+              commit.build(),
               (session) ->
                   datasetComponentDAO.setBlobs(session, newRequest.getBlobsList(), fileHasher),
               (session) -> repositoryDAO.getRepositoryById(session, request.getRepositoryId()));
