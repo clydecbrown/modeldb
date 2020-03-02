@@ -213,4 +213,9 @@
           referencedColumnNames="folder_sha"
           referencedTableName="folder_element"/>
     </changeSet>
+    <changeSet id="add-repository-owner" author="lezhevg">
+        <addColumn tableName="repository">
+            <column name="owner" type="varchar(255)"/>
+        </addColumn>
+    </changeSet>
 </databaseChangeLog>

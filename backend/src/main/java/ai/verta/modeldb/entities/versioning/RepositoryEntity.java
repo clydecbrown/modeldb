@@ -20,12 +20,13 @@ import javax.persistence.Table;
 public class RepositoryEntity {
   public RepositoryEntity() {}
 
-  public RepositoryEntity(String name, WorkspaceDTO workspaceDTO) {
+  public RepositoryEntity(String name, WorkspaceDTO workspaceDTO, String owner) {
     this.name = name;
     this.date_created = new Date().getTime();
     this.date_updated = new Date().getTime();
     this.workspace_id = workspaceDTO.getWorkspaceId();
     this.workspace_type = workspaceDTO.getWorkspaceType().getNumber();
+    this.owner = owner;
   }
 
   @Id
@@ -51,6 +52,9 @@ public class RepositoryEntity {
   @OrderBy("date_created")
   @ManyToMany(mappedBy = "repository")
   private Set<CommitEntity> commits = new HashSet<>();
+
+  @Column(name = "owner")
+  private String owner;
 
   public Long getId() {
     return id;
@@ -88,6 +92,7 @@ public class RepositoryEntity {
         .setDateUpdated(this.date_updated)
         .setWorkspaceId(this.workspace_id)
         .setWorkspaceTypeValue(this.workspace_type)
+        .setOwner(owner)
         .build();
   }
 

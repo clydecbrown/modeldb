@@ -12,6 +12,7 @@ import ai.verta.modeldb.utils.ModelDBUtils;
 import ai.verta.modeldb.versioning.ListRepositoriesRequest.Response;
 import ai.verta.modeldb.versioning.PathDatasetComponentBlob.Builder;
 import ai.verta.modeldb.versioning.VersioningServiceGrpc.VersioningServiceImplBase;
+import ai.verta.uac.UserInfo;
 import io.grpc.Status.Code;
 import io.grpc.stub.StreamObserver;
 import java.security.NoSuchAlgorithmException;
@@ -106,7 +107,15 @@ public class VersioningServiceImpl extends VersioningServiceImplBase {
           throw new ModelDBException("Repository name is empty", Code.INVALID_ARGUMENT);
         }
 
-        SetRepository.Response response = repositoryDAO.setRepository(request, true);
+        UserInfo userInfo = authService.getCurrentLoginUserInfo();
+        SetRepository.Builder requestBuilder = request.toBuilder();
+        if (userInfo != null) {
+          String vertaId = authService.getVertaIdFromUserInfo(userInfo);
+          requestBuilder.setRepository(request.getRepository().toBuilder().setOwner(vertaId));
+        } else {
+          throw new ModelDBException("Unauthenticated", Code.UNAUTHENTICATED);
+        }
+        SetRepository.Response response = repositoryDAO.setRepository(requestBuilder.build(), true);
         responseObserver.onNext(response);
         responseObserver.onCompleted();
       }
