@@ -383,10 +383,11 @@ def set_version_pins(requirements):
     version directly from the environment.
 
     """
+    specifier = re.compile(r"(?:~=|==|!=|<=|>=|<|>|===)")
     for i, req in enumerate(requirements):
         error = ValueError("unable to determine a version number for requirement '{}';"
                            " please manually specify it as '{}==x.y.z'".format(req, req))
-        if '==' not in req:
+        if specifier.search(req):
             mod_name = PYPI_TO_IMPORT.get(req, req)
 
             # obtain package version
@@ -469,5 +470,12 @@ def read_reqs_file_lines(reqs_fp):
 
     requirements = [req for req in requirements if req]  # empty line
     requirements = [req for req in requirements if not req.startswith('#')]  # comment line
+
+    # remove unsupported options
+    #     https://pip.pypa.io/en/stable/reference/pip_install/#requirements-file-format
+    requirements = [req for req in requirements if not req.startswith('--')]
+    requirements = [req for req in requirements if not req.startswith(('-c ', '-e ', '-f ', '-i '))]
+    # TODO: follow references to other requirements files
+    requirements = [req for req in requirements if not req.startswith('-r ')]
 
     return requirements
