@@ -360,6 +360,29 @@ def process_requirements(requirements):
 
             requirements[i] = req + "==" + ver
 
+    add_verta_and_cloudpickle(requirements)
+
+    return requirements
+
+
+def add_verta_and_cloudpickle(requirements):
+    """
+    Adds verta and cloudpickle to `requirements`, pinning their versions from the environment.
+
+    verta and cloudpickle are required for deployment, but a user might not have specified them in
+    their manual deployment requirements.
+
+    Parameters
+    ----------
+    requirements : list of str
+
+    Raises
+    ------
+    ValueError
+        If verta or cloudpickle already have a version pin specified in `requirements`, but it
+        conflicts with the version in the current environment.
+
+    """
     # add verta
     verta_req = "verta=={}".format(__about__.__version__)
     for req in requirements:
@@ -387,5 +410,3 @@ def process_requirements(requirements):
                 break
     else:  # if not present, add
         requirements.append(cloudpickle_req)
-
-    return requirements

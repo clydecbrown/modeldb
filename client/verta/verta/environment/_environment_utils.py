@@ -21,13 +21,13 @@ def get_pip_freeze():
     pip_freeze = subprocess.check_output([sys.executable, '-m', 'pip', 'freeze'])
     pip_freeze = six.ensure_str(pip_freeze)
 
-    reqs = pip_freeze.splitlines()
+    req_specs = pip_freeze.splitlines()
 
     # remove libraries installed through a VCS
     # TODO: upgrade our protos to support handling these
-    reqs = list(filter(lambda req: not is_vcs_req(req), reqs))
+    req_specs = list(filter(lambda req: not is_vcs_req(req), reqs))
 
-    return reqs
+    return req_specs
 
 
 def parse_req_spec(req_spec):
