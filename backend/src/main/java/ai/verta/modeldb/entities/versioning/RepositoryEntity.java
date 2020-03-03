@@ -2,6 +2,7 @@ package ai.verta.modeldb.entities.versioning;
 
 import ai.verta.modeldb.dto.WorkspaceDTO;
 import ai.verta.modeldb.versioning.Repository;
+import ai.verta.modeldb.versioning.Repository.Builder;
 import ai.verta.modeldb.versioning.SetRepository;
 import java.util.Date;
 import java.util.HashSet;
@@ -85,15 +86,17 @@ public class RepositoryEntity {
   }
 
   public Repository toProto() {
-    return Repository.newBuilder()
+    final Builder builder = Repository.newBuilder()
         .setId(this.id)
         .setName(this.name)
         .setDateCreated(this.date_created)
         .setDateUpdated(this.date_updated)
         .setWorkspaceId(this.workspace_id)
-        .setWorkspaceTypeValue(this.workspace_type)
-        .setOwner(owner)
-        .build();
+        .setWorkspaceTypeValue(this.workspace_type);
+    if (owner != null) {
+      builder.setOwner(owner);
+    }
+    return builder.build();
   }
 
   public void update(SetRepository request) {
