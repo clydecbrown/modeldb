@@ -3266,12 +3266,7 @@ class ExperimentRun(_ModelDBEntity):
         """
         if isinstance(requirements, six.string_types):
             with open(requirements, 'r') as f:
-                requirements = f.readlines()
-
-            # clean
-            requirements = [req.strip() for req in requirements]
-            requirements = [req for req in requirements if not req.startswith('#')]  # comment line
-            requirements = [req for req in requirements if req]  # empty line
+                requirements = _artifact_utils.read_reqs_file_lines(f)
         elif (isinstance(requirements, list)
               and all(isinstance(req, six.string_types) for req in requirements)):
             requirements = copy.copy(requirements)

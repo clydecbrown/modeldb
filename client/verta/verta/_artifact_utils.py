@@ -410,3 +410,26 @@ def add_verta_and_cloudpickle(requirements):
                 break
     else:  # if not present, add
         requirements.append(cloudpickle_req)
+
+
+def read_reqs_file_lines(reqs_fp):
+    """
+    Performs basic preprocessing on a requirements file so it's easier to handle downstream.
+
+    Parameters
+    ----------
+    reqs_fp : file-like
+
+    Returns
+    -------
+    requirements : list of str
+
+    """
+    requirements = reqs_fp.readlines()
+
+    requirements = [req.strip() for req in requirements]
+
+    requirements = [req for req in requirements if req]  # empty line
+    requirements = [req for req in requirements if not req.startswith('#')]  # comment line
+
+    return requirements
