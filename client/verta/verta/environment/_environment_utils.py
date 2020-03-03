@@ -25,7 +25,7 @@ def get_pip_freeze():
 
     # remove libraries installed through a VCS
     # TODO: upgrade our protos to support handling these
-    req_specs = list(filter(lambda req: not is_vcs_req(req), reqs))
+    req_specs = list(filter(lambda req: not is_vcs_req(req), req_specs))
 
     return req_specs
 

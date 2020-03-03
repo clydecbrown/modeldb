@@ -2,9 +2,14 @@
 
 from __future__ import print_function
 
+import copy
 import sys
 
+from ..external import six
+
 from .._protos.public.modeldb.versioning import Environment_pb2 as _EnvironmentService
+
+from .. import _artifact_utils
 
 from . import _environment
 from . import _environment_utils
@@ -17,7 +22,9 @@ class Python(_environment.Environment):
 
         Parameters
         ----------
-        requirements : list of str, optional
+        requirements : list of str or file-like, optional
+            Either a list of PyPI package names, or a handle to a pip requirements file. If not
+            provided, all packages currently installed through pip will be captured.
         env_vars : list of str, optional
             Names of environment variables to capture. If not provided, nothing will be captured.
 
@@ -36,7 +43,24 @@ class Python(_environment.Environment):
             # TODO: support conda
             req_specs = _environment_utils.get_pip_freeze()
         else:
-            raise NotImplementedError
+            if (isinstance(requirements, list)
+                    and all(isinstance(req, six.string_types) for req in requirements)):
+                requirements = copy.copy(requirements)
+
+                # replace importable module names with PyPI package names in case of user error
+                for i, req in enumerate(requirements):
+                    requirements[i] = _artifact_utils.IMPORT_TO_PYPI.get(req, req)
+
+                _artifact_utils.set_version_pins(requirements)
+            elif hasattr(requirements, 'read'):
+                req_specs = _artifact_utils.read_reqs_file_lines(requirements)
+
+                # remove libraries installed through a VCS
+                # TODO: upgrade our protos to support handling these
+                req_specs = list(filter(lambda req: not _environment_utils.is_vcs_req(req), req_specs))
+            else:
+                raise TypeError("`requirements` must be either list of str or file-like,"
+                                " not {}".format(type(requirements)))
 
         for req_spec in req_specs:
             library, constraint, version = _environment_utils.parse_req_spec(req_spec)
