@@ -339,9 +339,33 @@ def process_requirements(requirements):
             warnings.warn(msg)
             requirements[i] = pkg
 
-    # find version numbers from importable packages
-    #     Because Python package management is complete anarchy, the Client can't determine
-    #     whether the environment is using pip, pip3, or conda to check the installed version.
+    set_version_pins(requirements)
+
+    add_verta_and_cloudpickle(requirements)
+
+    return requirements
+
+
+def set_version_pins(requirements):
+    """
+    Sets version pins for packages in `requirements`.
+
+    Parameters
+    ----------
+    requirements : list of str
+
+    Notes
+    -----
+    This function attempts an import of each package and checks its version using the module's
+    ``__version__`` attribute. This can lead to problems if the package is not importable (e.g.
+    PyPI name is different from its package module name) or if it does not have supply
+    ``__version__``.
+
+    This approach is taken because Python package management is complete anarchy, and the Client
+    can't determine whether the environment is using pip or conda in order to check the installed
+    version directly from the environment.
+
+    """
     for i, req in enumerate(requirements):
         error = ValueError("unable to determine a version number for requirement '{}';"
                            " please manually specify it as '{}==x.y.z'".format(req, req))
@@ -349,6 +373,7 @@ def process_requirements(requirements):
             mod_name = PYPI_TO_IMPORT.get(req, req)
 
             # obtain package version
+            # TODO: fallback to invoking `pip` via `subprocess`
             try:
                 mod = importlib.import_module(mod_name)
             except ImportError:
@@ -359,10 +384,6 @@ def process_requirements(requirements):
                 six.raise_from(error, None)
 
             requirements[i] = req + "==" + ver
-
-    add_verta_and_cloudpickle(requirements)
-
-    return requirements
 
 
 def add_verta_and_cloudpickle(requirements):
