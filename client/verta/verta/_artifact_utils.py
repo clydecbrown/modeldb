@@ -387,7 +387,8 @@ def set_version_pins(requirements):
     for i, req in enumerate(requirements):
         error = ValueError("unable to determine a version number for requirement '{}';"
                            " please manually specify it as '{}==x.y.z'".format(req, req))
-        if not specifier.search(req):
+        if specifier.search(req) is None:
+            print("not found")
             mod_name = PYPI_TO_IMPORT.get(req, req)
 
             # obtain package version

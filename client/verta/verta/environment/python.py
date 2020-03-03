@@ -45,19 +45,16 @@ class Python(_environment.Environment):
         else:
             if (isinstance(requirements, list)
                     and all(isinstance(req, six.string_types) for req in requirements)):
-                requirements = copy.copy(requirements)
+                req_specs = copy.copy(requirements)
 
                 # replace importable module names with PyPI package names in case of user error
-                for i, req in enumerate(requirements):
-                    requirements[i] = _artifact_utils.IMPORT_TO_PYPI.get(req, req)
+                for i, req in enumerate(req_specs):
+                    req_specs[i] = _artifact_utils.IMPORT_TO_PYPI.get(req, req)
 
-                _artifact_utils.set_version_pins(requirements)
+                _artifact_utils.set_version_pins(req_specs)
             elif hasattr(requirements, 'read'):
                 req_specs = _artifact_utils.read_reqs_file_lines(requirements)
-
-                # remove libraries installed through a VCS
-                # TODO: upgrade our protos to support handling these
-                req_specs = list(filter(lambda req: not _environment_utils.is_vcs_req(req), req_specs))
+                _artifact_utils.set_version_pins(req_specs)
             else:
                 raise TypeError("`requirements` must be either list of str or file-like,"
                                 " not {}".format(type(requirements)))
