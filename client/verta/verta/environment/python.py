@@ -33,6 +33,7 @@ class Python(_environment.Environment):
 
     def _capture_reqs(self, requirements):
         if requirements is None:
+            # TODO: support conda
             req_specs = _environment_utils.get_pip_freeze()
         else:
             raise NotImplementedError
