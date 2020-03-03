@@ -326,7 +326,30 @@ def process_requirements(requirements):
                              " please check its spelling,"
                              " or file an issue if you believe it is in error".format(req))
 
-    # warn for and strip version specifiers other than ==
+    strip_inexact_specifiers(requirements)
+
+    set_version_pins(requirements)
+
+    add_verta_and_cloudpickle(requirements)
+
+    return requirements
+
+
+def strip_inexact_specifiers(requirements):
+    """
+    Removes any version specifier that is not ``==``, leaving just the package name.
+
+    Parameters
+    ----------
+    requirements : list of str
+
+    Warns
+    -----
+    UserWarning
+        If a requirement specifier uses version specifier other than ``==``, to inform the user
+        that it will be replaced with an exact version pin.
+
+    """
     for i, req in enumerate(requirements):
         pkg, ver_spec = REQ_SPEC_REGEX.match(req).groups()
         if not ver_spec:
@@ -338,12 +361,6 @@ def process_requirements(requirements):
                    " with an exact pin of the currently-installed version".format(req))
             warnings.warn(msg)
             requirements[i] = pkg
-
-    set_version_pins(requirements)
-
-    add_verta_and_cloudpickle(requirements)
-
-    return requirements
 
 
 def set_version_pins(requirements):
