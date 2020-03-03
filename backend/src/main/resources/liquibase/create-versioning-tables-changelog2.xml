@@ -95,7 +95,7 @@
 	</changeSet>
 	<changeSet author="raviS"
 		id="create-hyperparameter_discrete_set_element_mapping">
-		<createTable tableName="hyperparameter_set_config_element_config_blob">
+		<createTable tableName="hyperparameter_discrete_set_element_mapping">
 			<column name="set_hash" type="varchar(64)">
 				<constraints
 					foreignKeyName="fk_hyperparameter_set_config_blob"
