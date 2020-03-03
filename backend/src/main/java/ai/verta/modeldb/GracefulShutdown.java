@@ -9,6 +9,7 @@ import org.springframework.context.ApplicationListener;
 import org.springframework.context.event.ContextClosedEvent;
 
 public class GracefulShutdown
+  
     implements TomcatConnectorCustomizer, ApplicationListener<ContextClosedEvent> {
 
   private volatile Connector connector;
