@@ -16,7 +16,7 @@ from . import _environment_utils
 
 
 class Python(_environment.Environment):
-    def __init__(self, requirements=None, env_vars=None):
+    def __init__(self, requirements=None, constraints=None, env_vars=None):
         """
 
 
@@ -25,13 +25,16 @@ class Python(_environment.Environment):
         requirements : list of str or file-like, optional
             Either a list of PyPI package names, or a handle to a pip requirements file. If not
             provided, all packages currently installed through pip will be captured.
+        constraints : file-like, optional
+            A handle to a pip constraints file. If not provided, nothing will be captured.
         env_vars : list of str, optional
             Names of environment variables to capture. If not provided, nothing will be captured.
 
         """
         super(Python, self).__init__(env_vars=env_vars)
-        self._capture_py_ver()
-        self._capture_reqs(requirements)
+        self._capture_python_version()
+        self._capture_requirements(requirements)
+        self._capture_constraints(constraints)
 
     @staticmethod
     def _req_spec_to_msg(req_spec):
@@ -61,12 +64,12 @@ class Python(_environment.Environment):
 
         return req_blob_msg
 
-    def _capture_py_ver(self):
+    def _capture_python_version(self):
         self._msg.python.version.major = sys.version_info.major
         self._msg.python.version.minor = sys.version_info.minor
         self._msg.python.version.patch = sys.version_info.micro
 
-    def _capture_reqs(self, requirements):
+    def _capture_requirements(self, requirements):
         if requirements is None:
             # TODO: support conda
             req_specs = _environment_utils.get_pip_freeze()
@@ -88,6 +91,21 @@ class Python(_environment.Environment):
                                 " not {}".format(type(requirements)))
 
         self._msg.python.requirements.extend(
+            self._req_spec_to_msg(req_spec)
+            for req_spec
+            in req_specs
+        )
+
+    def _capture_constraints(self, constraints):
+        if constraints is None:
+            return
+        if not hasattr(constraints, 'read'):
+            raise TypeError("`constraints` must be file-like,"
+                            " not {}".format(type(constraints)))
+
+        req_specs = _artifact_utils.read_reqs_file_lines(constraints)
+
+        self._msg.python.constraints.extend(
             self._req_spec_to_msg(req_spec)
             for req_spec
             in req_specs
