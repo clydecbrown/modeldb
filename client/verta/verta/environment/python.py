@@ -42,22 +42,21 @@ class Python(_environment.Environment):
         if requirements is None:
             # TODO: support conda
             req_specs = _environment_utils.get_pip_freeze()
+        elif (isinstance(requirements, list)
+              and all(isinstance(req, six.string_types) for req in requirements)):
+            req_specs = copy.copy(requirements)
+
+            # replace importable module names with PyPI package names in case of user error
+            for i, req in enumerate(req_specs):
+                req_specs[i] = _artifact_utils.IMPORT_TO_PYPI.get(req, req)
+
+            _artifact_utils.set_version_pins(req_specs)
+        elif hasattr(requirements, 'read'):
+            req_specs = _artifact_utils.read_reqs_file_lines(requirements)
+            _artifact_utils.set_version_pins(req_specs)
         else:
-            if (isinstance(requirements, list)
-                    and all(isinstance(req, six.string_types) for req in requirements)):
-                req_specs = copy.copy(requirements)
-
-                # replace importable module names with PyPI package names in case of user error
-                for i, req in enumerate(req_specs):
-                    req_specs[i] = _artifact_utils.IMPORT_TO_PYPI.get(req, req)
-
-                _artifact_utils.set_version_pins(req_specs)
-            elif hasattr(requirements, 'read'):
-                req_specs = _artifact_utils.read_reqs_file_lines(requirements)
-                _artifact_utils.set_version_pins(req_specs)
-            else:
-                raise TypeError("`requirements` must be either list of str or file-like,"
-                                " not {}".format(type(requirements)))
+            raise TypeError("`requirements` must be either list of str or file-like,"
+                            " not {}".format(type(requirements)))
 
         for req_spec in req_specs:
             library, constraint, version = _environment_utils.parse_req_spec(req_spec)
