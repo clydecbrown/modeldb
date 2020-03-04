@@ -10,6 +10,7 @@ from .._protos.public.modeldb.versioning import VersioningService_pb2 as _Versio
 
 from .. import _utils
 from .. import dataset
+from . import blob as blob_module
 
 
 class Commit(object):
@@ -167,7 +168,7 @@ class Commit(object):
             )
 
     def update(self, path, blob):
-        if not isinstance(blob, dataset._Dataset):  # NOTE: needs to be the root blob base class
+        if not isinstance(blob, blob_module.Blob):
             raise TypeError("unsupported type {}".format(type(blob)))
 
         if self.id is not None:
