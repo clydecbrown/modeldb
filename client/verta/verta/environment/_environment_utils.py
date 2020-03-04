@@ -9,11 +9,13 @@ import sys
 from ..external import six
 
 
+VER_NUM_PATTERN = r"^([0-9]+(?:\.[0-9]+){0,2}[^\s]*)$"  # https://www.python.org/dev/peps/pep-0440/#version-scheme
 REQ_SPEC_PATTERN = (
     r"^([A-Z0-9]|[A-Z0-9][A-Z0-9._-]*[A-Z0-9])\s*"  # https://www.python.org/dev/peps/pep-0508/#names
-    r"(~=|==|!=|<=|>=|<|>|===)\s*"  # https://www.python.org/dev/peps/pep-0440/#version-specifiers
-    r"([0-9]+(?:\.[0-9]+){0,2}[^\s]*)$"  # https://www.python.org/dev/peps/pep-0440/#version-scheme
+    + r"(~=|==|!=|<=|>=|<|>|===)\s*"  # https://www.python.org/dev/peps/pep-0440/#version-specifiers
+    + VER_NUM_PATTERN[1:]  # skip start-of-string
 )
+VER_NUM_REGEX = re.compile(VER_NUM_PATTERN)
 REQ_SPEC_REGEX = re.compile(REQ_SPEC_PATTERN, flags=re.IGNORECASE)
 
 
@@ -79,23 +81,33 @@ def parse_version(version):
         Additional characters, such as build metadata or sub-patch release numbers.
 
     """
-    components = version.split('.')
-
-    if len(components) > 3:
+    if VER_NUM_REGEX.match(version) is None:
         raise ValueError("\"{}\" does not appear to be a valid version number".format(version))
 
-    major = int(components[0])
+    # exercise for the reader: implement this function with one regex
+    MAJOR_REGEX = re.compile(r"^([0-9]+)")
+    MINOR_OR_PATCH_REGEX = re.compile(r"^(\.[0-9]+)")
 
-    if len(components) >= 2:
-        minor = int(components[1])
+    # extract major version
+    split = MAJOR_REGEX.split(version, maxsplit=1)[1:]  # first element is empty
+    major = int(split[0])
+    suffix = ''.join(split[1:])
+
+    # extract minor version
+    if MINOR_OR_PATCH_REGEX.match(suffix):
+        split = MINOR_OR_PATCH_REGEX.split(suffix, maxsplit=1)[1:]  # first element is empty
+        minor = int(split[0][1:])  # first character is period
+        suffix = ''.join(split[1:])
     else:
         minor = 0
 
-    if len(components) == 3:
-        patch, suffix = re.match(r"^([0-9]+)(.*)", components[2]).groups()
-        patch = int(patch)
+    # extract patch version
+    if MINOR_OR_PATCH_REGEX.match(suffix):
+        split = MINOR_OR_PATCH_REGEX.split(suffix, maxsplit=1)[1:]  # first element is empty
+        patch = int(split[0][1:])  # first character is period
+        suffix = ''.join(split[1:])
     else:
-        patch, suffix = 0, ""
+        patch = 0
 
     return major, minor, patch, suffix
 
