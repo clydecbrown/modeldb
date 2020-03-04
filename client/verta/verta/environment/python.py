@@ -33,6 +33,34 @@ class Python(_environment.Environment):
         self._capture_py_ver()
         self._capture_reqs(requirements)
 
+    @staticmethod
+    def _req_spec_to_msg(req_spec):
+        """
+        Converts a requirement specifier into a protobuf message.
+
+        Parameters
+        ----------
+        req_spec : str
+            e.g. "banana >= 3.6.0"
+
+        Returns
+        -------
+        msg : PythonRequirementEnvironmentBlob
+
+        """
+        library, constraint, version = _environment_utils.parse_req_spec(req_spec)
+        major, minor, patch, suffix = _environment_utils.parse_version(version)
+
+        req_blob_msg = _EnvironmentService.PythonRequirementEnvironmentBlob()
+        req_blob_msg.library = library
+        req_blob_msg.constraint = constraint
+        req_blob_msg.version.major = major
+        req_blob_msg.version.minor = minor
+        req_blob_msg.version.patch = patch
+        req_blob_msg.version.suffix = suffix
+
+        return req_blob_msg
+
     def _capture_py_ver(self):
         self._msg.python.version.major = sys.version_info.major
         self._msg.python.version.minor = sys.version_info.minor
@@ -59,16 +87,8 @@ class Python(_environment.Environment):
                 raise TypeError("`requirements` must be either list of str or file-like,"
                                 " not {}".format(type(requirements)))
 
-        for req_spec in req_specs:
-            library, constraint, version = _environment_utils.parse_req_spec(req_spec)
-            major, minor, patch, suffix = _environment_utils.parse_version(version)
-
-            req_blob_msg = _EnvironmentService.PythonRequirementEnvironmentBlob()
-            req_blob_msg.library = library
-            req_blob_msg.constraint = constraint
-            req_blob_msg.version.major = major
-            req_blob_msg.version.minor = minor
-            req_blob_msg.version.patch = patch
-            req_blob_msg.version.suffix = suffix
-
-            self._msg.python.requirements.append(req_blob_msg)
+        self._msg.python.requirements.extend(
+            self._req_spec_to_msg(req_spec)
+            for req_spec
+            in req_specs
+        )
