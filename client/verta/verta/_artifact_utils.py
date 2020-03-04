@@ -399,10 +399,9 @@ def set_version_pins(requirements):
                            " it might not be installed;"
                            " please manually specify it as '{}==x.y.z'".format(req, req))
         if specifier.search(req) is None:
-            mod_name = PYPI_TO_IMPORT.get(req, req)
-
             # obtain package version
             try:
+                mod_name = PYPI_TO_IMPORT.get(req, req)
                 mod = importlib.import_module(mod_name)
                 ver = mod.__version__
             except (ImportError, AttributeError):
