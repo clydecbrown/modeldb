@@ -34,7 +34,7 @@ class TestUtils:
             assert parsed_version[0] >= 0  # major
             assert parsed_version[1] >= 0  # minor
             assert parsed_version[2] >= 0  # patch
-            assert isinstance(parsed_version[2], six.string_types)  # suffix
+            assert isinstance(parsed_version[3], six.string_types)  # suffix
 
 
 class TestPython:
