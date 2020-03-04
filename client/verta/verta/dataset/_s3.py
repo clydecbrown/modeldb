@@ -17,7 +17,7 @@ class S3(object):
         if isinstance(paths, six.string_types):
             paths = [paths]
 
-        self._msg = _DatasetService.S3DatasetBlob()
+        self._msg = _DatasetService.DatasetBlob()
 
         obj_paths_to_metadata = dict()  # prevent duplicate objects
         for path in paths:
@@ -29,7 +29,7 @@ class S3(object):
             })
 
         s3_metadata = six.viewvalues(obj_paths_to_metadata)
-        self._msg.components.extend(s3_metadata)  # pylint: disable=no-member
+        self._msg.s3.components.extend(s3_metadata)  # pylint: disable=no-member
 
     @staticmethod
     def _parse_s3_url(path):

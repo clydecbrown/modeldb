@@ -103,7 +103,7 @@ class Commit(object):
             blob_msg = _VersioningService.BlobExpanded()
             blob_msg.location.extend(path_to_location(path))  # pylint: disable=no-member
             if isinstance(blob, dataset.S3):  # TODO: move logic to root blob base class
-                blob_msg.blob.dataset.s3.CopyFrom(blob._msg)  # pylint: disable=no-member
+                blob_msg.blob.dataset.CopyFrom(blob._msg)  # pylint: disable=no-member
             else:
                 raise RuntimeError("Commit contains an unexpected item {};"
                                    " please notify the Verta development team".format(type(blob)))
@@ -225,12 +225,12 @@ def blob_msg_to_object(blob_msg):
         dataset_type = blob_msg.dataset.WhichOneof('content')
         if dataset_type == 's3':
             obj = dataset.S3(paths=[])
-            obj._msg.CopyFrom(blob_msg.dataset.s3)
         elif dataset_type == 'path':
             raise NotImplementedError
         else:
             raise NotImplementedError("found unexpected dataset type {};"
                                       " please notify the Verta development team".format(dataset_type))
+        obj._msg.CopyFrom(blob_msg.dataset)
     else:
         raise NotImplementedError("found unexpected content type {};"
                                   " please notify the Verta development team".format(content_type))
