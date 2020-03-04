@@ -1,6 +1,7 @@
 // THIS FILE IS AUTO-GENERATED. DO NOT EDIT
 package ai.verta.swagger._public.modeldb.model
 
+import ai.verta.swagger.client.type_hints.GenericObject
 import ai.verta.swagger._public.modeldb.model.ArtifactTypeEnumArtifactType._
 import ai.verta.swagger._public.modeldb.model.AuthzActionEnumAuthzServiceActions._
 import ai.verta.swagger._public.modeldb.model.CollaboratorTypeEnumCollaboratorType._
@@ -23,5 +24,5 @@ import ai.verta.swagger._public.modeldb.model.UacFlagEnum._
 case class ModeldbQueryParameter (
   parameter_name: Option[String] = None,
   parameter_type: Option[ValueTypeEnumValueType] = None,
-  value: Option[ProtobufValue] = None
+  value: Option[GenericObject] = None
 )

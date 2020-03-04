@@ -1,11 +1,12 @@
 package ai.verta.client.entities.utils
 
-import ai.verta.swagger._public.modeldb.model.{CommonKeyValue, ProtobufValue}
+import ai.verta.swagger._public.modeldb.model.CommonKeyValue
+import ai.verta.swagger.client.type_hints.GenericObject
 
 import scala.util.{Failure, Success, Try}
 
 object KVHandler {
-  def convertValue(v: ProtobufValue, err: String): Try[Any] = {
+  def convertValue(v: GenericObject, err: String): Try[Any] = {
     if (v.number_value.isDefined)
       Success(v.number_value.get)
     else if (v.string_value.isDefined)
@@ -14,16 +15,16 @@ object KVHandler {
       Failure(new IllegalArgumentException(err))
   }
 
-  def convertValue(v: Any, err: String): Try[ProtobufValue] = {
+  def convertValue(v: Any, err: String): Try[GenericObject] = {
     v match {
-      case x: Int => Success(ProtobufValue(number_value = Some(x)))
-      case x: Double => Success(ProtobufValue(number_value = Some(x)))
-      case x: String => Success(ProtobufValue(string_value = Some(x)))
+      case x: Int => Success(GenericObject(number_value = Some(x)))
+      case x: Double => Success(GenericObject(number_value = Some(x)))
+      case x: String => Success(GenericObject(string_value = Some(x)))
       case _ => Failure(new IllegalArgumentException(err))
     }
   }
 
-  def mapToKVList(vals: Map[String, Any]) = {
+  def mapToKVList(vals: Map[String, Any]): Try[List[CommonKeyValue]] = {
     Try({
       vals.toList.map(arg => {
         val k = arg._1

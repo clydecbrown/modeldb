@@ -1,6 +1,7 @@
 // THIS FILE IS AUTO-GENERATED. DO NOT EDIT
 package ai.verta.swagger._public.modeldb.versioning.model
 
+import ai.verta.swagger.client.type_hints.GenericObject
 import ai.verta.swagger._public.modeldb.versioning.model.WorkspaceTypeEnumWorkspaceType._
 
 case class VersioningRepository (
@@ -9,5 +10,6 @@ case class VersioningRepository (
   date_created: Option[String] = None,
   date_updated: Option[String] = None,
   workspace_id: Option[String] = None,
-  workspace_type: Option[WorkspaceTypeEnumWorkspaceType] = None
+  workspace_type: Option[WorkspaceTypeEnumWorkspaceType] = None,
+  owner: Option[String] = None
 )

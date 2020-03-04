@@ -6,6 +6,7 @@ import scala.concurrent.duration.Duration
 import scala.util.Try
 
 import ai.verta.swagger.client.HttpClient
+import ai.verta.swagger.client.type_hints.GenericObject
 import ai.verta.swagger._public.uac.model._
 
 class TelemetryApi(client: HttpClient, val basePath: String = "/v1") {

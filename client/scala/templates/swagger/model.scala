@@ -1,6 +1,7 @@
 // THIS FILE IS AUTO-GENERATED. DO NOT EDIT
 package ai.verta.swagger.{{package}}.model
 
+import ai.verta.swagger.client.type_hints.GenericObject
 {{#__object_flag}}
 {{#enums}}
 import ai.verta.swagger.{{package}}.model.{{name}}._

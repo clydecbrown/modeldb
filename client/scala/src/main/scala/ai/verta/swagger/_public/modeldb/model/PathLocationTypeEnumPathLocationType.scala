@@ -1,6 +1,7 @@
 // THIS FILE IS AUTO-GENERATED. DO NOT EDIT
 package ai.verta.swagger._public.modeldb.model
 
+import ai.verta.swagger.client.type_hints.GenericObject
 object PathLocationTypeEnumPathLocationType {
   type PathLocationTypeEnumPathLocationType = String
   val LOCAL_FILE_SYSTEM: PathLocationTypeEnumPathLocationType = "LOCAL_FILE_SYSTEM"

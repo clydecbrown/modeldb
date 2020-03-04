@@ -6,6 +6,7 @@ import scala.concurrent.duration.Duration
 import scala.util.Try
 
 import ai.verta.swagger.client.HttpClient
+import ai.verta.swagger.client.type_hints.GenericObject
 import ai.verta.swagger._public.modeldb.metadata.model._
 
 class MetadataServiceApi(client: HttpClient, val basePath: String = "/v1") {
@@ -22,7 +23,7 @@ class MetadataServiceApi(client: HttpClient, val basePath: String = "/v1") {
     val __query = Map[String,String](
     )
     if (body == null) throw new Exception("Missing required parameter \"body\"")
-    return client.request[MetadataDeleteLabelsRequest, MetadataDeleteLabelsRequestResponse]("DELETE", basePath + s"/metadata/delete", __query, body)
+    return client.request[MetadataDeleteLabelsRequest, MetadataDeleteLabelsRequestResponse]("DELETE", basePath + s"/metadata/labels", __query, body)
   }
 
   def DeleteLabels(body: MetadataDeleteLabelsRequest)(implicit ec: ExecutionContext): Try[MetadataDeleteLabelsRequestResponse] = Await.result(DeleteLabelsAsync(body), Duration.Inf)

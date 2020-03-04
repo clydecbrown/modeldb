@@ -1,7 +1,6 @@
 package ai.verta.swagger.client.type_hints
 
 import ai.verta.swagger._public
-import ai.verta.swagger._public.modeldb.model.ProtobufValue
 import net.liftweb.json.JsonAST.{JDouble, JField, JString}
 import net.liftweb.json.{JObject, ShortTypeHints}
 
@@ -32,8 +31,8 @@ object CommonKeyValue {
           key = Some(key),
           value = Some(
             value match {
-              case JString(x) => ProtobufValue(string_value = Some(x))
-              case JDouble(x) => ProtobufValue(number_value = Some(x))
+              case JString(x) => GenericObject(string_value = Some(x))
+              case JDouble(x) => GenericObject(number_value = Some(x))
               case other => throw new Exception(s"unknown type ${other.toString} for key $key")
             }
           )

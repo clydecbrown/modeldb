@@ -1,6 +1,7 @@
 // THIS FILE IS AUTO-GENERATED. DO NOT EDIT
 package ai.verta.swagger._public.modeldb.model
 
+import ai.verta.swagger.client.type_hints.GenericObject
 import ai.verta.swagger._public.modeldb.model.ArtifactTypeEnumArtifactType._
 import ai.verta.swagger._public.modeldb.model.OperatorEnumOperator._
 import ai.verta.swagger._public.modeldb.model.TernaryEnumTernary._
@@ -9,6 +10,7 @@ import ai.verta.swagger._public.modeldb.model.WorkspaceTypeEnumWorkspaceType._
 import ai.verta.swagger._public.modeldb.model.ModeldbProjectVisibility._
 import ai.verta.swagger._public.modeldb.model.ProtobufNullValue._
 
-case class ProtobufListValue (
-  values: Option[List[ProtobufValue]] = None
+case class ProtobufAny (
+  type_url: Option[String] = None,
+  value: Option[String] = None
 )

@@ -1,6 +1,7 @@
 // THIS FILE IS AUTO-GENERATED. DO NOT EDIT
 package ai.verta.swagger._public.modeldb.model
 
+import ai.verta.swagger.client.type_hints.GenericObject
 import ai.verta.swagger._public.modeldb.model.ArtifactTypeEnumArtifactType._
 import ai.verta.swagger._public.modeldb.model.OperatorEnumOperator._
 import ai.verta.swagger._public.modeldb.model.TernaryEnumTernary._
@@ -11,7 +12,7 @@ import ai.verta.swagger._public.modeldb.model.ProtobufNullValue._
 
 case class ModeldbKeyValueQuery (
   key: Option[String] = None,
-  value: Option[ProtobufValue] = None,
+  value: Option[GenericObject] = None,
   value_type: Option[ValueTypeEnumValueType] = None,
   operator: Option[OperatorEnumOperator] = None
 )

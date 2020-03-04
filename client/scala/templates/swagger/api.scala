@@ -6,6 +6,7 @@ import scala.concurrent.duration.Duration
 import scala.util.Try
 
 import ai.verta.swagger.client.HttpClient
+import ai.verta.swagger.client.type_hints.GenericObject
 import ai.verta.swagger.{{package}}.model._
 
 class {{api_name}}Api(client: HttpClient, val basePath: String = "{{base_path}}") {

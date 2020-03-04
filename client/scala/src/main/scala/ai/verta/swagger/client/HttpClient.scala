@@ -49,6 +49,7 @@ class HttpClient(val host: String, val headers: Map[String, String]) {
       response.body match {
         case Left(failureBody) => Failure(HttpException(response.code, failureBody))
         case Right(successBody) => {
+          println(successBody)
           val json = parse(successBody)
           val result = json.extract[T2]
           Success(result)
