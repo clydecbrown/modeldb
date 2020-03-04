@@ -12,7 +12,7 @@ from ..external import six
 REQ_SPEC_PATTERN = (
     r"^([A-Z0-9]|[A-Z0-9][A-Z0-9._-]*[A-Z0-9])\s*"  # https://www.python.org/dev/peps/pep-0508/#names
     r"(~=|==|!=|<=|>=|<|>|===)\s*"  # https://www.python.org/dev/peps/pep-0440/#version-specifiers
-    r"([0-9]+(?:\.[0-9]){0,2}[^\s]*)$"  # https://www.python.org/dev/peps/pep-0440/#version-scheme
+    r"([0-9]+(?:\.[0-9]+){0,2}[^\s]*)$"  # https://www.python.org/dev/peps/pep-0440/#version-scheme
 )
 REQ_SPEC_REGEX = re.compile(REQ_SPEC_PATTERN, flags=re.IGNORECASE)
 
