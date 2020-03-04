@@ -12,7 +12,7 @@ from .._protos.public.modeldb.versioning import Environment_pb2 as _EnvironmentS
 from .._repository import blob
 
 
-class Environment(blob.Blob):
+class _Environment(blob.Blob):
     def __init__(self, env_vars):
         """
         Base class for environment versioning. Not for human consumption.
@@ -20,7 +20,7 @@ class Environment(blob.Blob):
         Handles environment variables and command line arguments.
 
         """
-        super(Environment, self).__init__()
+        super(_Environment, self).__init__()
 
         self._msg = _EnvironmentService.EnvironmentBlob()
         self._capture_env_vars(env_vars)
