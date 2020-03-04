@@ -61,13 +61,14 @@ class Python(_environment.Environment):
 
         for req_spec in req_specs:
             library, constraint, version = _environment_utils.parse_req_spec(req_spec)
-            major, minor, micro = _environment_utils.parse_version(version)
+            major, minor, patch, suffix = _environment_utils.parse_version(version)
 
             req_blob_msg = _EnvironmentService.PythonRequirementEnvironmentBlob()
             req_blob_msg.library = library
             req_blob_msg.constraint = constraint
             req_blob_msg.version.major = major
             req_blob_msg.version.minor = minor
-            req_blob_msg.version.patch = micro
+            req_blob_msg.version.patch = patch
+            req_blob_msg.version.suffix = suffix
 
             self._msg.python.requirements.append(req_blob_msg)

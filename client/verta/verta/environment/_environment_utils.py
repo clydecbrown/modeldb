@@ -10,9 +10,9 @@ from ..external import six
 
 
 REQ_SPEC_PATTERN = (
-    r"([A-Z0-9]|[A-Z0-9][A-Z0-9._-]*[A-Z0-9])\s*"  # https://www.python.org/dev/peps/pep-0508/#names
+    r"^([A-Z0-9]|[A-Z0-9][A-Z0-9._-]*[A-Z0-9])\s*"  # https://www.python.org/dev/peps/pep-0508/#names
     r"(~=|==|!=|<=|>=|<|>|===)\s*"  # https://www.python.org/dev/peps/pep-0440/#version-specifiers
-    r"([0-9]+(?:\.[0-9]){0,2}).*$"
+    r"([0-9]+(?:\.[0-9]){0,2}[^\s]*)$"  # https://www.python.org/dev/peps/pep-0440/#version-scheme
 )
 REQ_SPEC_REGEX = re.compile(REQ_SPEC_PATTERN, flags=re.IGNORECASE)
 
@@ -60,8 +60,6 @@ def parse_version(version):
     """
     Parses a version number into its components.
 
-    Anything more specific than the patch version will be ignored.
-
     A missing component will be returned as a ``0``.
 
     Parameters
@@ -77,6 +75,8 @@ def parse_version(version):
         e.g. 6
     patch : int
         e.g. 0
+    suffix : str
+        Additional characters, such as build metadata or sub-patch release numbers.
 
     """
     components = version.split('.')
@@ -84,15 +84,20 @@ def parse_version(version):
     if len(components) > 3:
         raise ValueError("\"{}\" does not appear to be a valid version number".format(version))
 
-    # remove anything more specific than patch version
-    if len(components) == 3:
-        components[2] = re.match(r"^[0-9]+", components[2]).group()
-
     major = int(components[0])
-    minor = int(components[1]) if len(components) >= 2 else 0
-    patch = int(components[2]) if len(components) == 3 else 0
 
-    return major, minor, patch
+    if len(components) >= 2:
+        minor = int(components[1])
+    else:
+        minor = 0
+
+    if len(components) == 3:
+        patch, suffix = re.match(r"^([0-9]+)(.*)", components[2]).groups()
+        patch = int(patch)
+    else:
+        patch, suffix = 0, ""
+
+    return major, minor, patch, suffix
 
 
 def is_vcs_req(req_spec):
