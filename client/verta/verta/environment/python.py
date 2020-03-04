@@ -25,8 +25,9 @@ class Python(_environment.Environment):
         requirements : list of str or file-like, optional
             Either a list of PyPI package names, or a handle to a pip requirements file. If not
             provided, all packages currently installed through pip will be captured.
-        constraints : file-like, optional
-            A handle to a pip constraints file. If not provided, nothing will be captured.
+        constraints : list of str or file-like, optional
+            Either a list of PyPI package names with version specifiers, or a handle to a pip
+            constraints file. If not provided, nothing will be captured.
         env_vars : list of str, optional
             Names of environment variables to capture. If not provided, nothing will be captured.
 
@@ -99,11 +100,15 @@ class Python(_environment.Environment):
     def _capture_constraints(self, constraints):
         if constraints is None:
             return
-        if not hasattr(constraints, 'read'):
-            raise TypeError("`constraints` must be file-like,"
-                            " not {}".format(type(constraints)))
 
-        req_specs = _artifact_utils.read_reqs_file_lines(constraints)
+        if (isinstance(constraints, list)
+                and all(isinstance(req, six.string_types) for req in constraints)):
+            req_specs = copy.copy(constraints)
+        elif hasattr(constraints, 'read'):
+            req_specs = _artifact_utils.read_reqs_file_lines(constraints)
+        else:
+            raise TypeError("`constraints` must be either list of str or file-like,"
+                            " not {}".format(type(constraints)))
 
         self._msg.python.constraints.extend(
             self._req_spec_to_msg(req_spec)
