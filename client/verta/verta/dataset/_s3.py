@@ -9,15 +9,17 @@ from .._protos.public.modeldb.versioning import Dataset_pb2 as _DatasetService
 
 from .. import _utils
 
+from . import _dataset
 
-class S3(object):
+
+class S3(_dataset._Dataset):
     _S3_PATH = "s3://{}/{}"
 
     def __init__(self, paths):
         if isinstance(paths, six.string_types):
             paths = [paths]
 
-        self._msg = _DatasetService.DatasetBlob()
+        super(S3, self).__init__()
 
         obj_paths_to_metadata = dict()  # prevent duplicate objects
         for path in paths:

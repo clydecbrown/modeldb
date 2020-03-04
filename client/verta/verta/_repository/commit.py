@@ -102,7 +102,7 @@ class Commit(object):
         for path, blob in six.viewitems(self._blobs):
             blob_msg = _VersioningService.BlobExpanded()
             blob_msg.location.extend(path_to_location(path))  # pylint: disable=no-member
-            if isinstance(blob, dataset.S3):  # TODO: move logic to root blob base class
+            if isinstance(blob, dataset._Dataset):  # TODO: move logic to root blob base class
                 blob_msg.blob.dataset.CopyFrom(blob._msg)  # pylint: disable=no-member
             else:
                 raise RuntimeError("Commit contains an unexpected item {};"
@@ -167,7 +167,7 @@ class Commit(object):
             )
 
     def update(self, path, blob):
-        if not isinstance(blob, dataset.S3):  # NOTE: needs to be the root blob base class
+        if not isinstance(blob, dataset._Dataset):  # NOTE: needs to be the root blob base class
             raise TypeError("unsupported type {}".format(type(blob)))
 
         if self.id is not None:
