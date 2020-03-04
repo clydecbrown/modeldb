@@ -53,7 +53,8 @@ def parse_req_spec(req_spec):
     """
     match = REQ_SPEC_REGEX.match(req_spec)
     if match is None:
-        raise ValueError("\"{}\" does not appear to be a valid pip requirement specifier".format(req_spec))
+        raise ValueError("\"{}\" does not appear to be a valid pip requirement specifier;"
+                         " it may be misspelled or missing its version specifier".format(req_spec))
 
     return match.groups()
 
