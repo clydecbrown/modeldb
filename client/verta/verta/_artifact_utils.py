@@ -8,6 +8,8 @@ import importlib
 import json
 import os
 import re
+import subprocess
+import sys
 import tempfile
 import warnings
 
@@ -383,23 +385,32 @@ def set_version_pins(requirements):
     version directly from the environment.
 
     """
+    # map of packages to their versions according to pip
+    pip_pkg_vers = dict(
+        req_spec.split('==')
+        for req_spec
+        in six.ensure_str(subprocess.check_output([sys.executable, '-m', 'pip', 'freeze'])).splitlines()
+        if '==' in req_spec
+    )
+
     specifier = re.compile(r"(?:~=|==|!=|<=|>=|<|>|===)")
     for i, req in enumerate(requirements):
         error = ValueError("unable to determine a version number for requirement '{}';"
+                           " it might not be installed;"
                            " please manually specify it as '{}==x.y.z'".format(req, req))
         if specifier.search(req) is None:
             mod_name = PYPI_TO_IMPORT.get(req, req)
 
             # obtain package version
-            # TODO: fallback to invoking `pip` via `subprocess`
             try:
                 mod = importlib.import_module(mod_name)
-            except ImportError:
-                six.raise_from(error, None)
-            try:
                 ver = mod.__version__
-            except AttributeError:
-                six.raise_from(error, None)
+            except (ImportError, AttributeError):
+                # fall back to checking pip
+                try:
+                    ver = pip_pkg_vers[req]
+                except KeyError:
+                    six.raise_from(error, None)
 
             requirements[i] = req + "==" + ver
 
